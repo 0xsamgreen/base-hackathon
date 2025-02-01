@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  telegram_bot:
+    build: ./backend
+    container_name: hackathon_bot
+    env_file: .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python run_bot.py
+    restart: always
+    networks:
+      - app-network
+
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: postgres_db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fastapi_app
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: admin_cli
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app/backend
+      - ./admin:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    stdin_open: true
+    tty: true
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
