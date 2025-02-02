@@ -2,6 +2,7 @@
 import logging
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
+import asyncio
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -14,6 +15,7 @@ from telegram.ext import (
 from ..db.session import get_db
 from ..models.user import User
 from ..models.quiz import Quiz, UserQuizCompletion
+from ..services.backend_wallet import BackendWalletService
 from ..config import get_settings
 
 # Configure logging to be less verbose
@@ -160,9 +162,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         # Show training text
-        await query.message.reply_text(
-            f"Let's learn about solar panel cleaning! 📚\n\n{TRAINING_TEXT}\n\n"
-            f"Would you like to take a quiz and earn 1 USDC?",
+            quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
+            await query.message.reply_text(
+                f"Let's learn about solar panel cleaning! 📚\n\n{TRAINING_TEXT}\n\n"
+                f"Would you like to take a quiz and earn 1 USDC + {quiz.eth_reward_amount} ETH?",
             reply_markup=InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("Yes", callback_data="quiz_start"),
@@ -234,10 +237,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.commit()
         
         if passed:
-            await query.message.reply_text(
-                "🎉 Congratulations! You got all questions correct!\n"
-                "Your reward of 1 USDC will be sent to your wallet shortly."
-            )
+            # Send ETH reward
+            try:
+                wallet_service = BackendWalletService()
+                wallet_info = wallet_service.get_wallet_info()
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                tx_hash = await loop.run_until_complete(wallet_service.sendTransaction(
+                    wallet_info['private_key'],
+                    user.wallet_address,
+                    quiz.eth_reward_amount
+                ))
+                loop.close()
+
+                await query.message.reply_text(
+                    "🎉 Congratulations! You got all questions correct!\n\n"
+                    f"Your rewards:\n"
+                    f"- 1 USDC will be sent shortly\n"
+                    f"- {quiz.eth_reward_amount} ETH has been sent!\n\n"
+                    f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}"
+                )
+            except Exception as e:
+                logger.error(f"Error sending ETH reward: {e}")
+                await query.message.reply_text(
+                    "🎉 Congratulations! You got all questions correct!\n\n"
+                    "Your reward of 1 USDC will be sent shortly.\n"
+                    "Note: There was an issue sending the ETH reward. Please contact support."
+                )
         else:
             await query.message.reply_text(
                 f"You got {score}/3 questions correct. You need all correct answers to earn the reward.\n"

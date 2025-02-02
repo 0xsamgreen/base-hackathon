@@ -9,7 +9,8 @@ class Quiz(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    reward_amount = Column(DECIMAL(10,2), nullable=False)
+    reward_amount = Column(DECIMAL(10,2), nullable=False)  # USDC reward
+    eth_reward_amount = Column(String, nullable=False, default="0.00001")  # ETH reward
 
 class UserQuizCompletion(Base):
     """User quiz completion model."""

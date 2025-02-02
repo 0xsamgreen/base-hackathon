@@ -272,6 +272,45 @@ def send_eth_to_user(db: Session):
     except Exception as e:
         console.print(f"[red]Error sending ETH: {e}[/red]")
 
+def delete_user(db: Session):
+    """Delete a user."""
+    try:
+        from backend.app.models.user import User
+        users = db.query(User).all()
+        
+        if not users:
+            console.print("[yellow]No users found.[/yellow]")
+            return
+
+        choices = [(user, f"ID: {user.id}, Telegram: {user.telegram_id}, Username: {user.username}, KYC: {'✅' if user.kyc else '❌'}") 
+                  for user in users]
+        
+        result = radiolist_dialog(
+            title="Select User to Delete",
+            text="Choose a user to delete:",
+            values=choices
+        ).run()
+
+        if result:
+            confirmation = prompt(f"Type 'DELETE' to confirm deletion of user {result.telegram_id}: ")
+            if confirmation != "DELETE":
+                console.print("[yellow]Operation cancelled.[/yellow]")
+                return
+            
+            # Delete user's quiz completions first
+            from backend.app.models.quiz import UserQuizCompletion
+            db.query(UserQuizCompletion).filter(UserQuizCompletion.user_id == result.id).delete()
+            
+            # Delete the user
+            db.delete(result)
+            db.commit()
+            
+            console.print(f"[green]User {result.telegram_id} deleted successfully![/green]")
+        else:
+            console.print("[yellow]Operation cancelled.[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error deleting user: {e}[/red]")
+
 def main_menu():
     """Display the main menu and handle user input."""
     while True:
@@ -282,7 +321,8 @@ def main_menu():
         console.print("4. Show Backend Wallet Info")
         console.print("5. Regenerate Backend Wallet")
         console.print("6. Send ETH to User")
-        console.print("7. Exit")
+        console.print("7. Delete User")
+        console.print("8. Exit")
         
         choice = prompt("Select an option: ")
         
@@ -301,6 +341,8 @@ def main_menu():
         elif choice == "6":
             send_eth_to_user(db)
         elif choice == "7":
+            delete_user(db)
+        elif choice == "8":
             console.print("[yellow]Goodbye![/yellow]")
             break
         else:

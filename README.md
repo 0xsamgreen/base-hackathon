@@ -95,6 +95,7 @@ Each service runs independently in its own terminal:
    - Shows backend wallet balance
    - Regenerates backend wallet if needed
    - Sends ETH to approved users
+   - Deletes users and their quiz data
 
 The services are designed to run independently, so you can:
 - Restart the backend without affecting the bot or admin CLI
