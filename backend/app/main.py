@@ -16,10 +16,12 @@ wait_for_db()
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Initialize backend wallet
-asyncio.run(initialize_backend_wallet())
-
 app = FastAPI(title="Hackathon API")
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize backend wallet on startup."""
+    await initialize_backend_wallet()
 
 # Configure CORS
 app.add_middleware(

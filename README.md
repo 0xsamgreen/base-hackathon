@@ -91,6 +91,10 @@ Each service runs independently in its own terminal:
    - Approves users
    - Triggers wallet generation
    - Shows generated wallet addresses
+   - Manages backend reward wallet
+   - Shows backend wallet balance
+   - Regenerates backend wallet if needed
+   - Sends ETH to approved users
 
 The services are designed to run independently, so you can:
 - Restart the backend without affecting the bot or admin CLI
@@ -109,6 +113,7 @@ The system consists of three main components:
 - Generate Base blockchain wallets for approved users (using viem)
 - Maintain secure user data handling
 - Enable admin oversight of KYC process
+- Distribute rewards through backend wallet
 
 ## Dependencies
 
@@ -141,11 +146,13 @@ The system consists of three main components:
   - Manages user data and KYC status
   - Handles wallet generation using viem
   - SQLite database integration
+  - Manages backend reward wallet
 
 - **Admin CLI** (`admin/`):
   - Reviews pending KYC requests
   - Approves/manages users
   - Monitors system status
+  - Controls backend wallet
 
 ## Setup
 
@@ -185,6 +192,7 @@ The system consists of three main components:
    ```
    Edit .env and add:
    - `TELEGRAM_BOT_TOKEN` - Your Telegram bot token
+   - Backend wallet will be auto-generated on first startup
 
 ## Running the System
 
@@ -197,6 +205,7 @@ This will:
 - Start the backend API (new terminal window)
 - Start the Telegram bot (new terminal window)
 - Initialize the database if needed
+- Create backend wallet if needed
 
 To use the admin interface:
 ```bash
@@ -233,6 +242,7 @@ To use the admin interface:
 - **API**: FastAPI on port 8000
 - **Wallet Generation**: viem (TypeScript)
 - **Network**: Base Sepolia testnet
+- **Reward System**: Backend wallet for USDC distribution
 
 ## Troubleshooting
 
@@ -253,6 +263,7 @@ If you encounter errors during wallet generation (usually during KYC approval):
 - If the backend fails to start, ensure no other process is using port 8000
 - If wallet generation fails, try reinstalling Node.js dependencies as described above
 - For database issues, you can reinitialize it using `python init_db.py`
+- For backend wallet issues, use admin CLI to regenerate wallet (requires confirmation)
 
 ## Project Structure
 
@@ -289,6 +300,9 @@ If you encounter errors during wallet generation (usually during KYC approval):
 - Robust rate limit handling
 - Automatic notifications on KYC approval
 - Learn to Clean Quiz with USDC rewards
+- Backend wallet for reward distribution
+- Admin wallet management tools
+- Direct ETH transfers to users
 
 🚧 In Development:
 - AI training earning opportunity

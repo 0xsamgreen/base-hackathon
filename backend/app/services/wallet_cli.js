@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 const { WalletService } = require('./wallet');
+const { createPublicClient, http, formatEther } = require('viem');
+const { baseSepolia } = require('viem/chains');
 
 async function main() {
     const method = process.argv[2];
@@ -14,7 +16,18 @@ async function main() {
                 result = await service.createWallet();
                 break;
             case 'getWalletClient':
-                result = await service.getWalletClient(args[0]);
+                const client = await service.getWalletClient(args[0]);
+                const publicClient = createPublicClient({
+                    chain: baseSepolia,
+                    transport: http()
+                });
+                const balance = await publicClient.getBalance({
+                    address: client.account.address
+                });
+                result = {
+                    address: client.account.address,
+                    balance: formatEther(balance)
+                };
                 break;
             case 'sendTransaction':
                 result = await service.sendTransaction(args[0], args[1], args[2]);

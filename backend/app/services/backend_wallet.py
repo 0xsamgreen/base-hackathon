@@ -1,6 +1,6 @@
 """Backend wallet service for managing the system wallet."""
 import os
-from dotenv import load_dotenv, set_dotenv
+from dotenv import load_dotenv, set_key
 from .wallet_wrapper import WalletService
 import asyncio
 
@@ -40,12 +40,9 @@ class BackendWalletService:
             f"BACKEND_WALLET_PRIVATE_KEY={wallet['privateKey']}"
         ])
         
-        # Write back to .env
-        with open(self.env_path, 'w') as f:
-            f.write('\n'.join(lines))
-        
-        # Reload environment
-        load_dotenv(self.env_path)
+        # Update .env file
+        set_key(self.env_path, "BACKEND_WALLET_ADDRESS", wallet['address'])
+        set_key(self.env_path, "BACKEND_WALLET_PRIVATE_KEY", wallet['privateKey'])
         return wallet
 
     async def get_balance(self):
@@ -54,8 +51,12 @@ class BackendWalletService:
         if not wallet['address']:
             return None
         
-        provider = await self.wallet_service.get_wallet_provider(wallet['private_key'])
-        return provider.get('balance')
+        result = await self.wallet_service.get_wallet_client(wallet['private_key'])
+        return result.get('balance', '0')
+
+    async def sendTransaction(self, private_key: str, to: str, amount: str):
+        """Send a transaction."""
+        return await self.wallet_service.send_transaction(private_key, to, amount)
 
 async def initialize_backend_wallet():
     """Initialize backend wallet if it doesn't exist."""

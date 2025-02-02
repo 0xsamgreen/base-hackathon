@@ -41,6 +41,9 @@ var viem_1 = require("viem");
 var accounts_1 = require("viem/accounts");
 var chains_1 = require("viem/chains");
 var crypto = require("crypto");
+var dotenv = require("dotenv");
+dotenv.config();
+var transport = (0, viem_1.http)(process.env.BASE_SEPOLIA_RPC_URL);
 var WalletService = /** @class */ (function () {
     function WalletService() {
     }
@@ -84,9 +87,11 @@ var WalletService = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         account = (0, accounts_1.privateKeyToAccount)("0x".concat(privateKey));
-                        return [4 /*yield*/, this.getWalletClient(privateKey)];
-                    case 1:
-                        client = _a.sent();
+                        client = (0, viem_1.createWalletClient)({
+                            account: account,
+                            chain: chains_1.baseSepolia,
+                            transport: transport
+                        });
                         return [4 /*yield*/, client.sendTransaction({
                                 account: account,
                                 chain: chains_1.baseSepolia,
@@ -94,7 +99,7 @@ var WalletService = /** @class */ (function () {
                                 value: (0, viem_1.parseEther)(amount),
                                 kzg: undefined // Required by viem v2 but not needed for Base
                             })];
-                    case 2:
+                    case 1:
                         hash = _a.sent();
                         return [2 /*return*/, hash];
                 }

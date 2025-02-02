@@ -1,7 +1,12 @@
-import { createWalletClient, http, parseEther, WalletClient, type Hash } from 'viem'
+import { createWalletClient, http, parseEther, WalletClient, type Hash, createPublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
 import * as crypto from 'crypto'
+import * as dotenv from 'dotenv'
+
+dotenv.config()
+
+const transport = http(process.env.BASE_SEPOLIA_RPC_URL)
 
 export class WalletService {
   async createWallet(): Promise<{ address: string; privateKey: string }> {
@@ -39,7 +44,11 @@ export class WalletService {
 
   async sendTransaction(privateKey: string, to: string, amount: string): Promise<Hash> {
     const account = privateKeyToAccount(`0x${privateKey}`)
-    const client = await this.getWalletClient(privateKey)
+    const client = createWalletClient({
+      account,
+      chain: baseSepolia,
+      transport
+    })
     const hash = await client.sendTransaction({
       account,
       chain: baseSepolia,

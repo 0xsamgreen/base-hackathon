@@ -5,7 +5,9 @@ from rich.table import Table
 from sqlalchemy.orm import Session
 from lib.database import SessionLocal
 import sys
+import os
 import asyncio
+from dotenv import load_dotenv
 
 console = Console()
 
@@ -165,32 +167,32 @@ def approve_kyc(db: Session):
     except Exception as e:
         console.print(f"[red]Error approving KYC: {e}[/red]")
 
-async def show_backend_wallet(db: Session):
-    """Show backend wallet info and balance."""
+def show_backend_wallet(db: Session):
+    """Show backend wallet info."""
     try:
-        from backend.app.services.backend_wallet import BackendWalletService
+        # Load .env file from project root
+        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+        load_dotenv(env_path)
         
-        wallet_service = BackendWalletService()
-        if not wallet_service.has_wallet():
+        address = os.getenv('BACKEND_WALLET_ADDRESS')
+        private_key = os.getenv('BACKEND_WALLET_PRIVATE_KEY')
+        if not address or not private_key:
             console.print("[yellow]No backend wallet found. One will be created on next backend startup.[/yellow]")
             return
             
-        wallet_info = wallet_service.get_wallet_info()
-        balance = await wallet_service.get_balance()
-        
         table = Table(show_header=True, header_style="bold magenta", show_lines=True)
         table.add_column("Property", style="cyan")
         table.add_column("Value", style="green")
         
-        table.add_row("Address", wallet_info['address'])
-        table.add_row("Balance", str(balance) if balance is not None else "Error fetching balance")
+        table.add_row("Address", address)
+        table.add_row("Private Key", private_key)
         
         console.print("\n[bold blue]Backend Wallet Info[/bold blue]")
         console.print(table)
     except Exception as e:
         console.print(f"[red]Error showing backend wallet info: {e}[/red]")
 
-async def regenerate_backend_wallet(db: Session):
+def regenerate_backend_wallet(db: Session):
     """Regenerate the backend wallet after confirmation."""
     try:
         from backend.app.services.backend_wallet import BackendWalletService
@@ -203,12 +205,72 @@ async def regenerate_backend_wallet(db: Session):
             return
             
         wallet_service = BackendWalletService()
-        wallet = await wallet_service.create_wallet()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        wallet = loop.run_until_complete(wallet_service.create_wallet())
+        loop.close()
         
         console.print("[green]Backend wallet regenerated successfully![/green]")
         console.print(f"[green]New wallet address: {wallet['address']}[/green]")
     except Exception as e:
         console.print(f"[red]Error regenerating backend wallet: {e}[/red]")
+
+def send_eth_to_user(db: Session):
+    """Send ETH to an approved user."""
+    try:
+        from backend.app.models.user import User
+        users = db.query(User).filter(User.kyc == True).all()
+        
+        if not users:
+            console.print("[yellow]No approved users found.[/yellow]")
+            return
+
+        choices = [(user, f"ID: {user.id}, Telegram: {user.telegram_id}, Address: {user.wallet_address}") 
+                  for user in users if user.wallet_address]
+        
+        if not choices:
+            console.print("[yellow]No users with wallet addresses found.[/yellow]")
+            return
+
+        result = radiolist_dialog(
+            title="Select User to Send ETH",
+            text="Choose a user:",
+            values=choices
+        ).run()
+
+        if result:
+            amount = prompt("Enter amount of ETH to send: ")
+            try:
+                float(amount)  # Validate amount is a number
+            except ValueError:
+                console.print("[red]Invalid amount. Please enter a number.[/red]")
+                return
+
+            confirmation = prompt(f"Type 'CONFIRM' to send {amount} ETH to {result.wallet_address}: ")
+            if confirmation != "CONFIRM":
+                console.print("[yellow]Operation cancelled.[/yellow]")
+                return
+
+            from backend.app.services.backend_wallet import BackendWalletService
+            wallet_service = BackendWalletService()
+            wallet_info = wallet_service.get_wallet_info()
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            tx_hash = loop.run_until_complete(wallet_service.sendTransaction(
+                wallet_info['private_key'],
+                result.wallet_address,
+                amount
+            ))
+            loop.close()
+
+            console.print("[green]Transaction sent successfully![/green]")
+            console.print(f"[green]Transaction hash: {tx_hash}[/green]")
+            console.print(f"[green]View on explorer: https://sepolia.basescan.org/tx/{tx_hash}[/green]")
+        else:
+            console.print("[yellow]Operation cancelled.[/yellow]")
+    except Exception as e:
+        console.print(f"[red]Error sending ETH: {e}[/red]")
 
 def main_menu():
     """Display the main menu and handle user input."""
@@ -219,7 +281,8 @@ def main_menu():
         console.print("3. List Approved Users")
         console.print("4. Show Backend Wallet Info")
         console.print("5. Regenerate Backend Wallet")
-        console.print("6. Exit")
+        console.print("6. Send ETH to User")
+        console.print("7. Exit")
         
         choice = prompt("Select an option: ")
         
@@ -232,10 +295,12 @@ def main_menu():
         elif choice == "3":
             list_approved_users(db)
         elif choice == "4":
-            asyncio.run(show_backend_wallet(db))
+            show_backend_wallet(db)
         elif choice == "5":
-            asyncio.run(regenerate_backend_wallet(db))
+            regenerate_backend_wallet(db)
         elif choice == "6":
+            send_eth_to_user(db)
+        elif choice == "7":
             console.print("[yellow]Goodbye![/yellow]")
             break
         else:

@@ -15,9 +15,11 @@
   "dependencies": {
     "abitype": "^1.0.8",
     "agentkit": "github:coinbase/agentkit#master",
+    "dotenv": "^16.4.7",
     "viem": "^2.22.17"
   },
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }
