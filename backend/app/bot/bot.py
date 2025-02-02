@@ -13,12 +13,15 @@ from telegram.ext import (
 from ..db.session import get_db
 from ..models.user import User
 
-# Enable logging
+# Configure logging to be less verbose
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    level=logging.WARNING  # Only show warnings and errors
 )
 logger = logging.getLogger(__name__)
+
+# Disable polling logs from httpx
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Conversation states
 NAME, BIRTHDAY, PHONE, EMAIL, PIN = range(5)
@@ -120,10 +123,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 def create_application() -> Application:
     """Create and configure the bot application."""
-    # Create application
+    # Create application with custom settings
     application = Application.builder().token(
         os.getenv("TELEGRAM_BOT_TOKEN")
-    ).build()
+    ).get_updates_read_timeout(42).get_updates_write_timeout(42).build()
+
+    # Configure error handlers
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        print(f"Exception while handling an update: {context.error}")
+    
+    application.add_error_handler(error_handler)
 
     # Add conversation handler
     conv_handler = ConversationHandler(
@@ -144,7 +153,13 @@ def create_application() -> Application:
 def main() -> None:
     """Start the bot."""
     app = create_application()
-    app.run_polling()
+    app.run_polling(
+        allowed_updates=["message"],
+        drop_pending_updates=True,
+        pool_timeout=30.0,  # Longer timeout
+        read_timeout=30.0,  # Longer timeout
+        connect_timeout=30.0  # Longer timeout
+    )
 
 if __name__ == "__main__":
     main()

@@ -5,8 +5,10 @@ from sqlalchemy.orm import Session
 from ...db.session import get_db
 from ...models.user import User as UserModel
 from ...schemas.user import User, UserCreate, UserUpdate
+from ...services.wallet_wrapper import WalletService
 
 router = APIRouter()
+wallet_service = WalletService()
 
 
 @router.post("/", response_model=User)
@@ -35,18 +37,33 @@ def get_user(telegram_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{telegram_id}", response_model=User)
-def update_user(telegram_id: int, user: UserUpdate, db: Session = Depends(get_db)):
-    db_user = db.query(UserModel).filter(UserModel.telegram_id == telegram_id).first()
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    update_data = user.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_user, field, value)
-    
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+async def update_user(telegram_id: int, user: UserUpdate, db: Session = Depends(get_db)):
+    try:
+        db_user = db.query(UserModel).filter(UserModel.telegram_id == telegram_id).first()
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        update_data = user.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_user, field, value)
+        
+        # If KYC is being approved and user doesn't have a wallet, create one
+        if update_data.get('kyc') and not db_user.wallet_address:
+            try:
+                wallet = await wallet_service.create_wallet()
+                print(f"Wallet created: {wallet}")  # Debug log
+                db_user.wallet_address = wallet['address']
+                db_user.private_key = wallet['privateKey']
+            except Exception as e:
+                print(f"Error creating wallet: {str(e)}")  # Debug log
+                raise HTTPException(status_code=500, detail=f"Error creating wallet: {str(e)}")
+        
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        print(f"Error updating user: {str(e)}")  # Debug log
+        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
 
 
 @router.get("/", response_model=List[User])

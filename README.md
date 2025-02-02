@@ -1,92 +1,210 @@
 # Base Hackathon Project
 
-A Telegram bot with admin CLI for managing KYC (Know Your Customer) verifications.
+A Telegram bot-based KYC system with wallet generation for Base blockchain. The system consists of three main components:
 
-## Features
+## Quick Start
 
-- Telegram bot for collecting KYC information
-- Admin CLI for managing KYC verifications
-- PostgreSQL database for data storage
-- Docker-based deployment
+```bash
+# Clone and setup
+git clone [repository-url]
+cd base-hackathon
+cp .env.example .env  # Add your Telegram bot token
 
-## Prerequisites
+# Install dependencies
+cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && npm install && deactivate
+cd ../admin && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && deactivate
+cd ..
 
-- Docker and Docker Compose
-- Telegram Bot Token (get from [@BotFather](https://t.me/BotFather))
+# Initialize database
+python init_db.py
+
+# Start everything
+./dev.sh start
+
+# In another terminal, run admin interface when needed
+./dev.sh admin
+
+# Test it out
+# 1. Message @basehackathon on Telegram
+# 2. Send /start command
+# 3. Complete KYC form
+# 4. Use admin CLI to approve
+```
+
+The system consists of three main components:
+
+1. Telegram Bot - Handles user KYC data collection
+2. Admin CLI - For KYC approval and user management
+3. Backend API - Manages data and wallet operations
+
+## Project Goals
+
+- Provide a seamless KYC process through Telegram
+- Generate Base blockchain wallets for approved users
+- Maintain secure user data handling
+- Enable admin oversight of KYC process
+
+## System Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│ Telegram Bot│────▶│ Backend API  │◀────│  Admin CLI  │
+└─────────────┘     └──────────────┘     └─────────────┘
+                          │
+                    ┌─────▼─────┐
+                    │  SQLite   │
+                    │ Database  │
+                    └───────────┘
+```
+
+### Components
+
+- **Telegram Bot** (`backend/app/bot/`):
+  - Collects user KYC information
+  - Handles user interactions
+  - Notifies users of KYC status
+
+- **Backend API** (`backend/app/`):
+  - FastAPI-based REST API
+  - Manages user data and KYC status
+  - Handles wallet generation using viem
+  - SQLite database integration
+
+- **Admin CLI** (`admin/`):
+  - Reviews pending KYC requests
+  - Approves/manages users
+  - Monitors system status
 
 ## Setup
 
 1. Clone the repository:
+   ```bash
+   git clone [repository-url]
+   cd base-hackathon
+   ```
+
+2. Create Python virtual environments:
+   ```bash
+   # Backend venv
+   cd backend
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   deactivate
+
+   # Admin venv
+   cd ../admin
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   deactivate
+   cd ..
+   ```
+
+3. Install Node.js dependencies:
+   ```bash
+   cd backend
+   npm install
+   ```
+
+4. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit .env and add:
+   - `TELEGRAM_BOT_TOKEN` - Your Telegram bot token
+
+## Running the System
+
+Start all services with a single command:
 ```bash
-git clone git@github.com:0xsamgreen/base-hackathon.git
-cd base-hackathon
+./dev.sh start
 ```
 
-2. Create environment file:
+This will:
+- Start the backend API (new terminal window)
+- Start the Telegram bot (new terminal window)
+- Initialize the database if needed
+
+To use the admin interface:
 ```bash
-cp .env.example .env
+./dev.sh admin
 ```
 
-3. Update the `.env` file with your configuration:
-- Set PostgreSQL credentials
-- Add your Telegram Bot Token
+## Development Commands
 
-4. Build and start the services:
-```bash
-docker-compose up -d
-```
+- `./dev.sh start` - Start all services
+- `./dev.sh backend` - Run only the backend API
+- `./dev.sh bot` - Run only the Telegram bot
+- `./dev.sh admin` - Launch the admin CLI
 
-## Usage
+## User Flow
 
-### Telegram Bot
+1. User starts KYC:
+   - Message @basehackathon on Telegram
+   - Send /start command
+   - Follow prompts to enter:
+     * Full name
+     * Birthday
+     * Phone number
+     * Email
+     * PIN for wallet
 
-1. Start a chat with your bot on Telegram
-2. Use the `/start` command to begin KYC verification
-3. Follow the prompts to submit your information:
-   - Full Name
-   - Birthday
-   - Phone Number
-   - Email
-   - PIN for Wallet
+2. Admin approval:
+   - Admin reviews KYC in admin CLI
+   - Upon approval, system generates Base wallet
+   - User receives notification via Telegram
 
-### Admin CLI
+## Technical Details
 
-The admin CLI provides tools for managing KYC verifications:
-
-1. Access the CLI:
-```bash
-docker exec -it admin_cli python cli.py
-```
-
-2. Available commands:
-   - Option 1: List Pending KYC - View all pending verifications
-   - Option 2: Approve KYC - Select and approve pending verifications
-   - Option 3: List Approved Users - View all approved users
-   - Option 4: Exit
+- **Database**: SQLite (file: base-hackathon.db)
+- **API**: FastAPI on port 8000
+- **Wallet Generation**: viem (TypeScript)
+- **Network**: Base Sepolia testnet
 
 ## Project Structure
 
 ```
 .
-├── admin/              # Admin CLI application
-├── backend/           # Backend API and Telegram bot
-├── db/               # Database initialization
-├── docker-compose.yml
-└── .env.example
+├── admin/              # Admin CLI tool
+├── backend/
+│   ├── app/
+│   │   ├── api/       # REST API endpoints
+│   │   ├── bot/       # Telegram bot
+│   │   ├── db/        # Database
+│   │   ├── models/    # SQLAlchemy models
+│   │   ├── schemas/   # Pydantic schemas
+│   │   └── services/  # Business logic
+│   └── requirements.txt
+└── dev.sh             # Development utilities
 ```
 
-## Development
+## Contributing
 
-To add new features or modify existing ones:
+1. Keep services modular and independent
+2. Follow existing patterns for new features
+3. Update documentation for significant changes
 
-1. Make changes to the relevant components
-2. Rebuild the affected services:
-```bash
-docker-compose up -d --build <service_name>
-```
+## Current Status
 
-## Security Notes
+✅ Working Features:
+- Telegram bot KYC data collection
+- SQLite database integration
+- Admin CLI for KYC approval
+- Base Sepolia wallet generation
+- Process management with dev.sh
 
-- Keep your `.env` file secure and never commit it to version control
-- Regularly rotate the database credentials and bot token
-- All sensitive user data is stored securely in the PostgreSQL database
+🚧 In Development:
+- Error handling improvements
+- Rate limit handling for Telegram
+- Process cleanup refinements
+
+## Future Improvements
+
+- [ ] Enhanced error handling and validation
+- [ ] User dashboard/web interface
+- [ ] Additional KYC verification methods
+- [ ] Transaction monitoring
+- [ ] Multi-admin support
+- [ ] Automated testing
+- [ ] CI/CD pipeline

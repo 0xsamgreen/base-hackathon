@@ -16,11 +16,13 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     kyc: Optional[bool] = None
     wallet_address: Optional[str] = None
+    private_key: Optional[str] = None
 
 
 class User(UserBase):
     id: int
     kyc: bool
+    private_key: Optional[str] = None
 
     class Config:
         orm_mode = True

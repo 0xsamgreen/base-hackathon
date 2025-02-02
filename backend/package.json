@@ -1,0 +1,22 @@
+{
+  "name": "base-hackathon-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && tsc app/services/wallet.ts --outDir app/services --module commonjs",
+    "watch": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "agentkit": "github:coinbase/agentkit#master",
+    "viem": "^2.22.17"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

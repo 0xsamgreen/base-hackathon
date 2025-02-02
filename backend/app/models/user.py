@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, BigInteger
+from sqlalchemy import Boolean, Column, Integer, String, BigInteger, Text
 from ..db.session import Base
 
 
@@ -10,6 +10,7 @@ class User(Base):
     username = Column(String, nullable=True)
     kyc = Column(Boolean, default=False)
     wallet_address = Column(String, nullable=True)
+    private_key = Column(String, nullable=True)  # Store private key for hackathon
     full_name = Column(String, nullable=True)
     birthday = Column(String, nullable=True)
     phone = Column(String, nullable=True)

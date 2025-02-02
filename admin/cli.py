@@ -118,9 +118,19 @@ def approve_kyc(db: Session):
         ).run()
 
         if result:
-            result.kyc = True
-            db.commit()
-            console.print(f"[green]KYC approved for user {result.telegram_id}[/green]")
+            # Use API to update KYC status
+            import requests
+            response = requests.patch(
+                f"http://localhost:8000/api/v1/users/{result.telegram_id}",
+                json={"kyc": True}
+            )
+            if response.status_code == 200:
+                user_data = response.json()
+                console.print(f"[green]KYC approved for user {result.telegram_id}[/green]")
+                if user_data.get("wallet_address"):
+                    console.print(f"[green]Wallet generated: {user_data['wallet_address']}[/green]")
+            else:
+                console.print(f"[red]Error from API: {response.text}[/red]")
         else:
             console.print("[yellow]Operation cancelled.[/yellow]")
     except Exception as e:

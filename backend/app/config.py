@@ -1,18 +1,11 @@
 from pydantic import BaseSettings
 from functools import lru_cache
+import os
 
 
 class Settings(BaseSettings):
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    POSTGRES_HOST: str = "db"  # Use the service name from docker-compose
-    POSTGRES_PORT: str = "5432"  # Default PostgreSQL port
-
-    @property
-    def DATABASE_URL(self) -> str:
-        """Generate the PostgreSQL connection URL."""
-        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    # Use SQLite database file in the project root
+    DATABASE_URL: str = "sqlite:///./base-hackathon.db"
 
     class Config:
         env_file = "../.env"
