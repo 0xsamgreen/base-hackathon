@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Conversation states
-NAME, BIRTHDAY, PHONE, EMAIL, PIN = range(5)
-QUIZ_START, QUIZ_Q1, QUIZ_Q2, QUIZ_Q3 = range(5, 9)
-SEND_SELECT_USER, SEND_AMOUNT = range(9, 11)
+NAME, BIRTHDAY, PHONE, EMAIL = range(4)
+QUIZ_START, QUIZ_Q1, QUIZ_Q2, QUIZ_Q3 = range(4, 8)
+SEND_SELECT_USER, SEND_AMOUNT = range(8, 10)
 
 # Quiz content
 TRAINING_TEXT = """🌞 Solar Panel Cleaning Guide
@@ -530,16 +530,8 @@ async def collect_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return EMAIL
 
 async def collect_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Collect user's email and ask for PIN."""
+    """Collect user's email and save all data."""
     context.user_data['email'] = update.message.text
-    await update.message.reply_text(
-        "Almost done! Finally, please enter a 6-digit PIN for your wallet:"
-    )
-    return PIN
-
-async def collect_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Collect user's PIN and save all data."""
-    context.user_data['pin'] = update.message.text
     
     # Get database session
     db = next(get_db())
@@ -555,7 +547,6 @@ async def collect_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
             user.birthday = context.user_data['birthday']
             user.phone = context.user_data['phone']
             user.email = context.user_data['email']
-            user.pin = context.user_data['pin']
         else:
             # Create new user
             user = User(
@@ -564,8 +555,7 @@ async def collect_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                 kyc=False,  # Pending approval
                 full_name=context.user_data['name'],
                 phone=context.user_data['phone'],
-                email=context.user_data['email'],
-                pin=context.user_data['pin']
+                email=context.user_data['email']
             )
             db.add(user)
         db.commit()
@@ -684,7 +674,6 @@ def create_application() -> Application:
             BIRTHDAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_birthday)],
             PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_phone)],
             EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_email)],
-            PIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_pin)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         allow_reentry=True,

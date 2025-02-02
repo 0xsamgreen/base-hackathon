@@ -15,7 +15,6 @@ class User(Base):
     birthday = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
-    pin = Column(String, nullable=True)
 
     class Config:
         orm_mode = True

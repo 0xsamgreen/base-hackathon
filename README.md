@@ -35,7 +35,11 @@ python init_db.py
 ## Features
 
 - **KYC System**
-  - Collect user information via Telegram
+  - Simple user information collection via Telegram
+    - Full name
+    - Birthday
+    - Phone number
+    - Email address
   - Admin review and approval
   - Automatic Base wallet generation
 
@@ -104,7 +108,7 @@ python init_db.py
 ## Current Status
 
 ✅ Working Features:
-- KYC system with admin approval
+- Streamlined KYC system with admin approval
 - Base wallet generation and balance tracking
 - Educational quiz with ETH rewards
 - Direct ETH transfers with improved user selection
