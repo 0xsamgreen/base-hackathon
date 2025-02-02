@@ -16,6 +16,7 @@ from ..db.session import get_db
 from ..models.user import User
 from ..models.quiz import Quiz, UserQuizCompletion
 from ..services.backend_wallet import BackendWalletService
+from ..services.wallet_wrapper import WalletService
 from ..config import get_settings
 
 # Configure logging to be less verbose
@@ -100,9 +101,9 @@ def build_menu(user: User = None) -> InlineKeyboardMarkup:
         callback_data="kyc" if not user or not user.kyc else "unavailable")])
     
     # Wallet button - active only if KYC approved
-    wallet_text = "Get Wallet Address"
+    wallet_text = "Get Wallet and Account Info"
     if not user or not user.kyc:
-        wallet_text = "⚪️ Get Wallet Address (Complete KYC First)"
+        wallet_text = "⚪️ Get Wallet and Account Info (Complete KYC First)"
     buttons.append([InlineKeyboardButton(wallet_text, 
         callback_data="wallet" if user and user.kyc else "unavailable")])
     
@@ -405,7 +406,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text("No wallet has been generated yet")
             return
         
-        await query.message.reply_text(f"Your wallet address is: {user.wallet_address}")
+        try:
+            wallet_service = WalletService()
+            wallet_info = await wallet_service.get_wallet_client(user.private_key)
+            
+            await query.message.reply_text(
+                f"💳 Your Base Wallet\n\n"
+                f"Address: `{wallet_info['address']}`\n"
+                f"Balance: {wallet_info['balance']} ETH",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Error getting wallet info: {e}")
+            await query.message.reply_text(
+                "Sorry, there was an error fetching your wallet information. "
+                "Please try again later."
+            )
 
 async def handle_eth_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle ETH amount input and process the transaction."""

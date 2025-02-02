@@ -46,7 +46,7 @@ python init_db.py
 
 - **Wallet Features**
   - Base Sepolia testnet integration
-  - View wallet address
+  - View wallet address and ETH balance
   - Send/receive ETH
   - Backend wallet for reward distribution
 
@@ -75,7 +75,7 @@ python init_db.py
 2. Complete KYC process
 3. Admin approves & wallet generated
 4. Access features:
-   - View wallet address
+   - View wallet address and balance
    - Take quiz to earn ETH
    - Send ETH to other users
 
@@ -105,10 +105,10 @@ python init_db.py
 
 ✅ Working Features:
 - KYC system with admin approval
-- Base wallet generation
+- Base wallet generation and balance tracking
 - Educational quiz with ETH rewards
-- Direct ETH transfers
-- Admin management tools
+- Direct ETH transfers with improved user selection
+- Admin management tools with enhanced user info display
 
 🚧 Coming Soon:
 - AI training opportunity

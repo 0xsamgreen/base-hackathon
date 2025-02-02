@@ -225,7 +225,7 @@ def send_eth_to_user(db: Session):
             console.print("[yellow]No approved users found.[/yellow]")
             return
 
-        choices = [(user, f"ID: {user.id}, Telegram: {user.telegram_id}, Address: {user.wallet_address}") 
+        choices = [(user, f"@{user.username}\nWallet: {user.wallet_address}") 
                   for user in users if user.wallet_address]
         
         if not choices:
@@ -246,7 +246,7 @@ def send_eth_to_user(db: Session):
                 console.print("[red]Invalid amount. Please enter a number.[/red]")
                 return
 
-            confirmation = prompt(f"Type 'CONFIRM' to send {amount} ETH to {result.wallet_address}: ")
+            confirmation = prompt(f"Type 'CONFIRM' to send {amount} ETH to @{result.username} ({result.wallet_address}): ")
             if confirmation != "CONFIRM":
                 console.print("[yellow]Operation cancelled.[/yellow]")
                 return

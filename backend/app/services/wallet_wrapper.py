@@ -36,8 +36,8 @@ class WalletService:
     async def create_wallet(self):
         return await self._call_node('createWallet')
 
-    async def get_wallet_provider(self, private_key: str):
-        return await self._call_node('getWalletProvider', private_key)
+    async def get_wallet_client(self, private_key: str):
+        return await self._call_node('getWalletClient', private_key)
 
     async def send_transaction(self, private_key: str, to: str, amount: str):
         return await self._call_node('sendTransaction', private_key, to, amount)
