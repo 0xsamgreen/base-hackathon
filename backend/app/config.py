@@ -6,9 +6,10 @@ import os
 class Settings(BaseSettings):
     # Use SQLite database file in the project root
     DATABASE_URL: str = "sqlite:///./base-hackathon.db"
+    TELEGRAM_BOT_TOKEN: str | None = None
 
     class Config:
-        env_file = "../.env"
+        env_file = ".env"
 
 
 @lru_cache()

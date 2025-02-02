@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.v1 import users
 from .db.session import engine
 from .models.user import Base
 from .db.health import wait_for_db
+from .bot.bot import create_application
+from .config import get_settings
 
 # Wait for database to be ready
 wait_for_db()
@@ -35,3 +37,5 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+# API server only - bot runs separately via run_bot.py

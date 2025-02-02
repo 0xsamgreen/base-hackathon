@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 from ..db.session import get_db
 from ..models.user import User
+from ..config import get_settings
 
 # Configure logging to be less verbose
 logging.basicConfig(
@@ -124,13 +125,17 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def create_application() -> Application:
     """Create and configure the bot application."""
     # Create application with custom settings
+    settings = get_settings()
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise ValueError("TELEGRAM_BOT_TOKEN is required for bot operation")
+        
     application = Application.builder().token(
-        os.getenv("TELEGRAM_BOT_TOKEN")
-    ).get_updates_read_timeout(42).get_updates_write_timeout(42).build()
+        settings.TELEGRAM_BOT_TOKEN
+    ).build()
 
     # Configure error handlers
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        print(f"Exception while handling an update: {context.error}")
+        logger.error(f"Exception while handling an update: {context.error}")
     
     application.add_error_handler(error_handler)
 
@@ -152,14 +157,14 @@ def create_application() -> Application:
 
 def main() -> None:
     """Start the bot."""
-    app = create_application()
-    app.run_polling(
-        allowed_updates=["message"],
-        drop_pending_updates=True,
-        pool_timeout=30.0,  # Longer timeout
-        read_timeout=30.0,  # Longer timeout
-        connect_timeout=30.0  # Longer timeout
-    )
+    try:
+        print("Creating application...")
+        app = create_application()
+        print("Starting bot polling...")
+        app.run_polling(drop_pending_updates=True)
+    except Exception as e:
+        print(f"Error running bot: {e}")
+        raise
 
 if __name__ == "__main__":
     main()

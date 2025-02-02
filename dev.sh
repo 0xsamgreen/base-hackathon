@@ -10,52 +10,42 @@ activate_venv() {
     source "${PROJECT_ROOT}/$service/venv/bin/activate"
 }
 
-# Function to kill processes using a port
-kill_port() {
+# Function to clean up port processes
+cleanup_port() {
     local port=$1
-    local pid=$(lsof -ti :$port)
-    if [ ! -z "$pid" ]; then
-        echo "Killing process using port $port..."
-        kill -9 $pid
+    echo "Cleaning up port $port..."
+    
+    if lsof -ti :$port > /dev/null 2>&1; then
+        echo "Killing process on port $port..."
+        lsof -ti :$port | xargs kill -9
         sleep 1
     fi
+    
+    while lsof -ti :$port > /dev/null 2>&1; do
+        echo "Waiting for port $port to be free..."
+        sleep 1
+    done
 }
 
-# Function to kill existing processes
-kill_existing() {
-    local process=$1
-    local port=$2
-    echo "Checking for existing $process processes..."
-    
-    # Only kill processes that match the exact command
-    local pids=$(pgrep -f "^python.*$process$" || true)
-    if [ ! -z "$pids" ]; then
-        echo "Killing processes: $pids"
-        for pid in $pids; do
-            kill -9 $pid 2>/dev/null || true
-        done
-        sleep 1
-    fi
-
-    # If port is specified, ensure it's free
-    if [ ! -z "$port" ]; then
-        kill_port $port
-    fi
+# Function to clean up processes
+cleanup_processes() {
+    echo "Cleaning up processes..."
+    cleanup_port 8000  # Only clean up the backend API port
+    echo "Cleanup complete"
 }
 
 # Function to run backend service
 run_backend() {
     echo "Starting backend service..."
-    kill_existing "run.py" "8000"  # FastAPI runs on port 8000
+    cleanup_processes
     cd "${PROJECT_ROOT}/backend"
     activate_venv backend
-    python run.py
+    PYTHONPATH="${PROJECT_ROOT}" python run.py
 }
 
 # Function to run admin CLI
 run_admin() {
     echo "Starting admin CLI..."
-    kill_existing "cli.py"  # CLI doesn't use a port
     cd "${PROJECT_ROOT}/admin"
     activate_venv admin
     PYTHONPATH="${PROJECT_ROOT}" python cli.py
@@ -64,8 +54,6 @@ run_admin() {
 # Function to run bot
 run_bot() {
     echo "Starting Telegram bot..."
-    # Kill only the bot process
-    kill_existing "run_bot.py" "8443"  # Bot uses port 8443
     
     # Clean up Telegram state
     source .env
@@ -76,28 +64,24 @@ run_bot() {
         sleep 1
     fi
     
-    # Start bot in new terminal window
+    # Start bot in current terminal
     cd "${PROJECT_ROOT}/backend"
     activate_venv backend
-    osascript -e 'tell app "Terminal" to do script "cd \"'"${PROJECT_ROOT}"'/backend\" && source venv/bin/activate && python run_bot.py"'
+    PYTHONPATH="${PROJECT_ROOT}" python run_bot.py
 }
 
 # Function to start all services
 start_all() {
     echo "Starting all services..."
     
-    # Kill any existing processes
-    pkill -f "python"
-    sleep 2
+    # Clean up any existing processes
+    cleanup_processes
     
-    # Start backend
+    # Start backend in foreground
     echo "Starting backend..."
-    osascript -e 'tell app "Terminal" to do script "cd \"'"${PROJECT_ROOT}"'\" && ./dev.sh backend"'
-    sleep 2
-    
-    # Start bot
-    echo "Starting bot..."
-    osascript -e 'tell app "Terminal" to do script "cd \"'"${PROJECT_ROOT}"'/backend\" && source venv/bin/activate && python run_bot.py"'
+    cd "${PROJECT_ROOT}/backend"
+    activate_venv backend
+    PYTHONPATH="${PROJECT_ROOT}" python run.py
     
     echo "All services started!"
     echo "Use './dev.sh admin' to run admin CLI when needed"

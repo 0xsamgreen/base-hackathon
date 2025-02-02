@@ -98,9 +98,22 @@ def list_approved_users(db: Session):
     except Exception as e:
         console.print(f"[red]Error listing approved users: {e}[/red]")
 
+def check_server():
+    """Check if the backend server is running."""
+    import requests
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
 def approve_kyc(db: Session):
     """Approve KYC for a selected user."""
     try:
+        if not check_server():
+            console.print("[red]Error: Backend server is not running. Please start it with './dev.sh start'[/red]")
+            return
+
         from backend.app.models.user import User
         users = db.query(User).filter(User.kyc == False).all()
         
@@ -118,11 +131,26 @@ def approve_kyc(db: Session):
         ).run()
 
         if result:
-            # Use API to update KYC status
+            # Use API to update KYC status with retries
             import requests
-            response = requests.patch(
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+
+            # Configure retry strategy
+            retry_strategy = Retry(
+                total=3,
+                backoff_factor=1,
+                status_forcelist=[500, 502, 503, 504]
+            )
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            session = requests.Session()
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+
+            response = session.patch(
                 f"http://localhost:8000/api/v1/users/{result.telegram_id}",
-                json={"kyc": True}
+                json={"kyc": True},
+                timeout=10
             )
             if response.status_code == 200:
                 user_data = response.json()

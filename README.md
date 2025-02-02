@@ -6,30 +6,77 @@ A Telegram bot-based KYC system with wallet generation for Base blockchain. The 
 
 ```bash
 # Clone and setup
-git clone [repository-url]
+git clone git@github.com:0xsamgreen/base-hackathon.git
 cd base-hackathon
 cp .env.example .env  # Add your Telegram bot token
 
 # Install dependencies
-cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && npm install && deactivate
-cd ../admin && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt && deactivate
+
+## Backend setup
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+deactivate
+
+# Node.js dependencies (important for wallet generation)
+npm install
+# If you encounter wallet generation errors, try:
+rm -rf node_modules && npm install
+
+## Admin setup
+cd ../admin
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+deactivate
 cd ..
 
 # Initialize database
 python init_db.py
 
-# Start everything
+# Start services (in separate terminals)
+
+## Terminal 1 - Start backend API
 ./dev.sh start
 
-# In another terminal, run admin interface when needed
+## Terminal 2 - Start Telegram bot
+./dev.sh bot
+
+## Terminal 3 - Run admin interface
 ./dev.sh admin
 
 # Test it out
-# 1. Message @basehackathon on Telegram
-# 2. Send /start command
-# 3. Complete KYC form
-# 4. Use admin CLI to approve
+1. Message @basehackathon on Telegram
+2. Send /start command to begin KYC process
+3. Complete KYC form
+4. Use admin CLI to approve and generate wallet
 ```
+
+## Running the Services
+
+Each service runs independently in its own terminal:
+
+1. **Backend API** (`./dev.sh start`)
+   - Handles API requests and wallet generation
+   - Runs on http://0.0.0.0:8000
+   - Must be started first
+
+2. **Telegram Bot** (`./dev.sh bot`)
+   - Handles user interactions
+   - Collects KYC information
+   - Notifies users of approval status
+
+3. **Admin CLI** (`./dev.sh admin`)
+   - Reviews pending KYC requests
+   - Approves users
+   - Triggers wallet generation
+   - Shows generated wallet addresses
+
+The services are designed to run independently, so you can:
+- Restart the backend without affecting the bot or admin CLI
+- Keep the admin CLI running while restarting other services
+- Start/stop services as needed without impacting others
 
 The system consists of three main components:
 
@@ -40,9 +87,15 @@ The system consists of three main components:
 ## Project Goals
 
 - Provide a seamless KYC process through Telegram
-- Generate Base blockchain wallets for approved users
+- Generate Base blockchain wallets for approved users (using viem)
 - Maintain secure user data handling
 - Enable admin oversight of KYC process
+
+## Dependencies
+
+- Python 3.x with venv module
+- Node.js (for wallet generation using viem)
+- SQLite3
 
 ## System Architecture
 
@@ -79,7 +132,7 @@ The system consists of three main components:
 
 1. Clone the repository:
    ```bash
-   git clone [repository-url]
+   git clone git@github.com:0xsamgreen/base-hackathon.git
    cd base-hackathon
    ```
 
@@ -161,6 +214,26 @@ To use the admin interface:
 - **API**: FastAPI on port 8000
 - **Wallet Generation**: viem (TypeScript)
 - **Network**: Base Sepolia testnet
+
+## Troubleshooting
+
+### Wallet Generation Issues
+If you encounter errors during wallet generation (usually during KYC approval):
+1. Ensure Node.js dependencies are properly installed:
+   ```bash
+   cd backend
+   rm -rf node_modules
+   npm install
+   ```
+2. Restart the backend server:
+   ```bash
+   ./dev.sh start
+   ```
+
+### Common Issues
+- If the backend fails to start, ensure no other process is using port 8000
+- If wallet generation fails, try reinstalling Node.js dependencies as described above
+- For database issues, you can reinitialize it using `python init_db.py`
 
 ## Project Structure
 
