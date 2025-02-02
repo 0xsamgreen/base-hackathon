@@ -32,8 +32,12 @@ def build_menu(user: User = None) -> InlineKeyboardMarkup:
     """Build the menu keyboard based on user state."""
     buttons = []
     
-    # KYC button - always active
-    buttons.append([InlineKeyboardButton("Enter KYC Info", callback_data="kyc")])
+    # KYC button - greyed out if already approved
+    kyc_text = "Enter KYC Info"
+    if user and user.kyc:
+        kyc_text = "⚪️ KYC Already Approved"
+    buttons.append([InlineKeyboardButton(kyc_text, 
+        callback_data="kyc" if not user or not user.kyc else "unavailable")])
     
     # Wallet button - active only if KYC approved
     wallet_text = "Get Wallet Address"
