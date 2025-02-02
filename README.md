@@ -48,10 +48,29 @@ python init_db.py
 
 # Test it out
 1. Message @basehackathon on Telegram
-2. Send /start command to begin KYC process
-3. Complete KYC form
-4. Use admin CLI to approve and generate wallet
+2. Send /start command to see the menu
+3. Select "Enter KYC Info" to begin KYC process
+4. Complete KYC form
+5. Use admin CLI to approve and generate wallet
+6. Once approved, use /menu to access your wallet
 ```
+
+## Menu System
+
+The Telegram bot features a dynamic menu system:
+
+1. **Always Available**
+   - "Enter KYC Info" - Start the KYC process
+   - "/menu" command - Show available options
+
+2. **Available After KYC Approval**
+   - "Get Wallet Address" - View your Base wallet address
+   
+3. **Coming Soon** (Greyed Out)
+   - "Learn to Clean Panels and Earn"
+   - "Train our AI and Earn"
+
+The menu automatically updates based on your KYC status, with unavailable options clearly marked.
 
 ## Running the Services
 
@@ -261,15 +280,17 @@ If you encounter errors during wallet generation (usually during KYC approval):
 ## Current Status
 
 ✅ Working Features:
+- Dynamic menu system with status indicators
 - Telegram bot KYC data collection
 - SQLite database integration
 - Admin CLI for KYC approval
 - Base Sepolia wallet generation
 - Process management with dev.sh
+- Robust rate limit handling
+- Automatic notifications on KYC approval
 
 🚧 In Development:
-- Error handling improvements
-- Rate limit handling for Telegram
+- Additional earning opportunities
 - Process cleanup refinements
 
 ## Future Improvements

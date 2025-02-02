@@ -1,4 +1,5 @@
 from typing import List, Optional
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -6,6 +7,9 @@ from ...db.session import get_db
 from ...models.user import User as UserModel
 from ...schemas.user import User, UserCreate, UserUpdate
 from ...services.wallet_wrapper import WalletService
+from ...bot.bot import notify_kyc_approved
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 wallet_service = WalletService()
@@ -47,20 +51,31 @@ async def update_user(telegram_id: int, user: UserUpdate, db: Session = Depends(
         for field, value in update_data.items():
             setattr(db_user, field, value)
         
-        # If KYC is being approved and user doesn't have a wallet, create one
-        if update_data.get('kyc') and not db_user.wallet_address:
+        # Handle KYC approval
+        if update_data.get('kyc'):
+            # Create wallet if needed
+            if not db_user.wallet_address:
+                try:
+                    wallet = await wallet_service.create_wallet()
+                    print(f"Wallet created: {wallet}")  # Debug log
+                    db_user.wallet_address = wallet['address']
+                    db_user.private_key = wallet['privateKey']
+                except Exception as e:
+                    print(f"Error creating wallet: {str(e)}")  # Debug log
+                    raise HTTPException(status_code=500, detail=f"Error creating wallet: {str(e)}")
+            
+            # Commit changes first
+            db.commit()
+            db.refresh(db_user)
+            
+            # Send notification after commit (so even if notification fails, DB is updated)
             try:
-                wallet = await wallet_service.create_wallet()
-                print(f"Wallet created: {wallet}")  # Debug log
-                db_user.wallet_address = wallet['address']
-                db_user.private_key = wallet['privateKey']
+                await notify_kyc_approved(db_user.telegram_id, db_user.wallet_address)
             except Exception as e:
-                print(f"Error creating wallet: {str(e)}")  # Debug log
-                raise HTTPException(status_code=500, detail=f"Error creating wallet: {str(e)}")
-        
-        db.commit()
-        db.refresh(db_user)
-        return db_user
+                logger.error(f"Failed to send notification: {e}")
+                # Don't raise error, just log it since the KYC approval itself succeeded
+            
+            return db_user
     except Exception as e:
         print(f"Error updating user: {str(e)}")  # Debug log
         raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")

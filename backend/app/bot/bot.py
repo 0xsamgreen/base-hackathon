@@ -1,11 +1,12 @@
 """Main Telegram bot module."""
 import logging
 import os
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
     ConversationHandler,
     ContextTypes,
@@ -27,13 +28,83 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # Conversation states
 NAME, BIRTHDAY, PHONE, EMAIL, PIN = range(5)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Start the KYC conversation."""
+def build_menu(user: User = None) -> InlineKeyboardMarkup:
+    """Build the menu keyboard based on user state."""
+    buttons = []
+    
+    # KYC button - always active
+    buttons.append([InlineKeyboardButton("Enter KYC Info", callback_data="kyc")])
+    
+    # Wallet button - active only if KYC approved
+    wallet_text = "Get Wallet Address"
+    if not user or not user.kyc:
+        wallet_text = "⚪️ Get Wallet Address (Complete KYC First)"
+    buttons.append([InlineKeyboardButton(wallet_text, 
+        callback_data="wallet" if user and user.kyc else "unavailable")])
+    
+    # Future features - greyed out
+    buttons.extend([
+        [InlineKeyboardButton("⚪️ Learn to Clean Panels and Earn (Coming Soon)", 
+            callback_data="unavailable")],
+        [InlineKeyboardButton("⚪️ Train our AI and Earn (Coming Soon)", 
+            callback_data="unavailable")]
+    ])
+    
+    return InlineKeyboardMarkup(buttons)
+
+async def show_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the main menu."""
+    db = next(get_db())
+    user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+    
     await update.message.reply_text(
-        "Welcome to the KYC verification process! 🚀\n\n"
-        "Please enter your full name:"
+        "Welcome to Base Hackathon Bot! 🚀\n"
+        "Please select an option:",
+        reply_markup=build_menu(user)
     )
-    return NAME
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start command handler."""
+    await show_menu(update, context)
+    return ConversationHandler.END
+
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Menu command handler."""
+    await show_menu(update, context)
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle button presses."""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "unavailable":
+        await query.answer("This feature is not available yet", show_alert=True)
+        return
+    
+    if query.data == "kyc":
+        await query.message.reply_text(
+            "Starting KYC process! 🚀\n\n"
+            "Please enter your full name:"
+        )
+        return NAME
+    
+    if query.data == "wallet":
+        db = next(get_db())
+        user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+        
+        if not user:
+            await query.message.reply_text("Please complete KYC first")
+            return
+        
+        if not user.kyc:
+            await query.message.reply_text("Your KYC is pending approval")
+            return
+        
+        if not user.wallet_address:
+            await query.message.reply_text("No wallet has been generated yet")
+            return
+        
+        await query.message.reply_text(f"Your wallet address is: {user.wallet_address}")
 
 async def collect_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Collect user's name and ask for birthday."""
@@ -122,6 +193,41 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return ConversationHandler.END
 
+import asyncio
+
+async def notify_kyc_approved(telegram_id: int, wallet_address: str):
+    """Send notification to user when KYC is approved."""
+    settings = get_settings()
+    if not settings.TELEGRAM_BOT_TOKEN:
+        logger.error("Cannot send notification: No bot token")
+        return
+        
+    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+    max_retries = 3
+    retry_delay = 5  # seconds
+    
+    try:
+        for attempt in range(max_retries):
+            try:
+                await bot.send_message(
+                    chat_id=telegram_id,
+                    text=f"🎉 Congratulations! Your KYC has been approved!\n\n"
+                         f"Your Base wallet address is:\n`{wallet_address}`\n\n"
+                         f"Use /menu to see all available options.",
+                    parse_mode='Markdown'
+                )
+                break
+            except Exception as e:
+                if "Flood control exceeded" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"Rate limited, waiting {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+                logger.error(f"Failed to send KYC approval notification: {e}")
+                break
+    finally:
+        await bot.close()
+
 def create_application() -> Application:
     """Create and configure the bot application."""
     # Create application with custom settings
@@ -141,7 +247,10 @@ def create_application() -> Application:
 
     # Add conversation handler
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[
+            CommandHandler("start", start),
+            CallbackQueryHandler(button_callback, pattern="^kyc$")
+        ],
         states={
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_name)],
             BIRTHDAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_birthday)],
@@ -150,8 +259,13 @@ def create_application() -> Application:
             PIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_pin)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True
     )
+    
+    # Add handlers
     application.add_handler(conv_handler)
+    application.add_handler(CommandHandler("menu", menu))
+    application.add_handler(CallbackQueryHandler(button_callback))
 
     return application
 
