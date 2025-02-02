@@ -65,9 +65,9 @@ The Telegram bot features a dynamic menu system:
 
 2. **Available After KYC Approval**
    - "Get Wallet Address" - View your Base wallet address
+   - "Learn to Clean Panels and Earn" - Take a quiz about solar panel cleaning to earn USDC
    
 3. **Coming Soon** (Greyed Out)
-   - "Learn to Clean Panels and Earn"
    - "Train our AI and Earn"
 
 The menu automatically updates based on your KYC status, with unavailable options clearly marked.
@@ -288,9 +288,10 @@ If you encounter errors during wallet generation (usually during KYC approval):
 - Process management with dev.sh
 - Robust rate limit handling
 - Automatic notifications on KYC approval
+- Learn to Clean Quiz with USDC rewards
 
 🚧 In Development:
-- Additional earning opportunities
+- AI training earning opportunity
 - Process cleanup refinements
 
 ## Future Improvements

@@ -13,6 +13,7 @@ from telegram.ext import (
 )
 from ..db.session import get_db
 from ..models.user import User
+from ..models.quiz import Quiz, UserQuizCompletion
 from ..config import get_settings
 
 # Configure logging to be less verbose
@@ -27,6 +28,51 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Conversation states
 NAME, BIRTHDAY, PHONE, EMAIL, PIN = range(5)
+QUIZ_START, QUIZ_Q1, QUIZ_Q2, QUIZ_Q3 = range(5, 9)
+
+# Quiz content
+TRAINING_TEXT = """
+How to Clean Solar Panels
+
+Turn off your solar panel system for safety.
+Use a soft-bristle brush with a long handle to avoid rooftop risks.
+Prepare a cleaning solution with mild, biodegradable soap and water, or use soap-free brushes.
+Gently scrub the panel surface while standing safely on the ground.
+Rinse with a hose using a gentle spray nozzle to remove dirt and soap residue.
+Avoid harsh chemicals, pressure washers, and abrasive tools to prevent damage.
+For snow removal, use a soft roof rake with a plastic blade, starting from the lower edge.
+Best done early morning or late afternoon to avoid heat stress on panels. If in doubt, let rain do the work or hire a professional.
+"""
+
+QUIZ_QUESTIONS = [
+    {
+        "question": "When is the best time to clean solar panels?",
+        "options": [
+            "During the hottest part of the day",
+            "Early morning or late afternoon",
+            "Right after it rains"
+        ],
+        "correct": 1
+    },
+    {
+        "question": "What should you avoid using when cleaning solar panels?",
+        "options": [
+            "Soft-bristle brush",
+            "Mild, biodegradable soap",
+            "Pressure washer"
+        ],
+        "correct": 2
+    },
+    {
+        "question": "How should you remove snow from solar panels?",
+        "options": [
+            "Use a soft roof rake with a plastic blade",
+            "Pour hot water over the panels",
+            "Scrape with a metal shovel"
+        ],
+        "correct": 0
+    }
+]
 
 def build_menu(user: User = None) -> InlineKeyboardMarkup:
     """Build the menu keyboard based on user state."""
@@ -46,13 +92,16 @@ def build_menu(user: User = None) -> InlineKeyboardMarkup:
     buttons.append([InlineKeyboardButton(wallet_text, 
         callback_data="wallet" if user and user.kyc else "unavailable")])
     
-    # Future features - greyed out
-    buttons.extend([
-        [InlineKeyboardButton("⚪️ Learn to Clean Panels and Earn (Coming Soon)", 
-            callback_data="unavailable")],
-        [InlineKeyboardButton("⚪️ Train our AI and Earn (Coming Soon)", 
-            callback_data="unavailable")]
-    ])
+    # Quiz feature - active if KYC approved
+    quiz_text = "Learn to Clean Panels and Earn"
+    if not user or not user.kyc:
+        quiz_text = "⚪️ Learn to Clean Panels and Earn (Complete KYC First)"
+    buttons.append([InlineKeyboardButton(quiz_text,
+        callback_data="quiz" if user and user.kyc else "unavailable")])
+    
+    # Future feature - greyed out
+    buttons.append([InlineKeyboardButton("⚪️ Train our AI and Earn (Coming Soon)", 
+        callback_data="unavailable")])
     
     return InlineKeyboardMarkup(buttons)
 
@@ -92,7 +141,118 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return NAME
     
-    if query.data == "wallet":
+    if query.data == "quiz":
+        db = next(get_db())
+        user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+        
+        # Check if user has already completed the quiz
+        quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
+        completion = db.query(UserQuizCompletion).filter(
+            UserQuizCompletion.user_id == user.id,
+            UserQuizCompletion.quiz_id == quiz.id,
+            UserQuizCompletion.passed == True
+        ).first()
+        
+        if completion:
+            await query.message.reply_text(
+                "You've already completed and passed this quiz! 🎉"
+            )
+            return
+        
+        # Show training text
+        await query.message.reply_text(
+            f"Let's learn about solar panel cleaning! 📚\n\n{TRAINING_TEXT}\n\n"
+            f"Would you like to take a quiz and earn 1 USDC?",
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("Yes", callback_data="quiz_start"),
+                    InlineKeyboardButton("No", callback_data="quiz_cancel")
+                ]
+            ])
+        )
+        return QUIZ_START
+        
+    elif query.data == "quiz_start":
+        context.user_data['quiz_score'] = 0
+        await query.message.reply_text(
+            f"Question 1: {QUIZ_QUESTIONS[0]['question']}",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(opt, callback_data=f"q1_{i}")]
+                for i, opt in enumerate(QUIZ_QUESTIONS[0]['options'])
+            ])
+        )
+        return QUIZ_Q1
+        
+    elif query.data.startswith("q1_"):
+        selected = int(query.data.split("_")[1])
+        if selected == QUIZ_QUESTIONS[0]['correct']:
+            context.user_data['quiz_score'] = context.user_data.get('quiz_score', 0) + 1
+        
+        await query.message.reply_text(
+            f"Question 2: {QUIZ_QUESTIONS[1]['question']}",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(opt, callback_data=f"q2_{i}")]
+                for i, opt in enumerate(QUIZ_QUESTIONS[1]['options'])
+            ])
+        )
+        return QUIZ_Q2
+        
+    elif query.data.startswith("q2_"):
+        selected = int(query.data.split("_")[1])
+        if selected == QUIZ_QUESTIONS[1]['correct']:
+            context.user_data['quiz_score'] = context.user_data.get('quiz_score', 0) + 1
+        
+        await query.message.reply_text(
+            f"Question 3: {QUIZ_QUESTIONS[2]['question']}",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(opt, callback_data=f"q3_{i}")]
+                for i, opt in enumerate(QUIZ_QUESTIONS[2]['options'])
+            ])
+        )
+        return QUIZ_Q3
+        
+    elif query.data.startswith("q3_"):
+        selected = int(query.data.split("_")[1])
+        if selected == QUIZ_QUESTIONS[2]['correct']:
+            context.user_data['quiz_score'] = context.user_data.get('quiz_score', 0) + 1
+        
+        score = context.user_data.get('quiz_score', 0)
+        passed = score == 3
+        
+        # Save quiz results
+        db = next(get_db())
+        user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+        quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
+        
+        completion = UserQuizCompletion(
+            user_id=user.id,
+            quiz_id=quiz.id,
+            score=score,
+            passed=passed
+        )
+        db.add(completion)
+        db.commit()
+        
+        if passed:
+            await query.message.reply_text(
+                "🎉 Congratulations! You got all questions correct!\n"
+                "Your reward of 1 USDC will be sent to your wallet shortly."
+            )
+        else:
+            await query.message.reply_text(
+                f"You got {score}/3 questions correct. You need all correct answers to earn the reward.\n"
+                "Feel free to try again after reviewing the training material!"
+            )
+        
+        return ConversationHandler.END
+        
+    elif query.data == "quiz_cancel":
+        await query.message.reply_text(
+            "No problem! You can take the quiz anytime by selecting it from the menu."
+        )
+        return ConversationHandler.END
+        
+    elif query.data == "wallet":
         db = next(get_db())
         user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
         
@@ -197,8 +357,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return ConversationHandler.END
 
-import asyncio
-
 async def notify_kyc_approved(telegram_id: int, wallet_address: str):
     """Send notification to user when KYC is approved."""
     settings = get_settings()
@@ -253,7 +411,7 @@ def create_application() -> Application:
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
-            CallbackQueryHandler(button_callback, pattern="^kyc$")
+            CallbackQueryHandler(button_callback, pattern="^(kyc|quiz|quiz_start|q1_\\d|q2_\\d|q3_\\d|quiz_cancel)$")
         ],
         states={
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_name)],
@@ -261,6 +419,10 @@ def create_application() -> Application:
             PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_phone)],
             EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_email)],
             PIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_pin)],
+            QUIZ_START: [CallbackQueryHandler(button_callback, pattern="^(quiz_start|quiz_cancel)$")],
+            QUIZ_Q1: [CallbackQueryHandler(button_callback, pattern="^q1_\\d$")],
+            QUIZ_Q2: [CallbackQueryHandler(button_callback, pattern="^q2_\\d$")],
+            QUIZ_Q3: [CallbackQueryHandler(button_callback, pattern="^q3_\\d$")],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
         allow_reentry=True
