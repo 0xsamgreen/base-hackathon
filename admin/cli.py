@@ -124,7 +124,7 @@ def approve_kyc(db: Session):
             console.print("[yellow]No pending KYC verifications found.[/yellow]")
             return
 
-        choices = [(user, f"ID: {user.id}, Telegram: {user.telegram_id}, Username: {user.username}") 
+        choices = [(user, f"@{user.username}\nTelegram ID: {user.telegram_id}\nFull Name: {user.full_name}") 
                   for user in users]
         
         result = radiolist_dialog(
@@ -282,7 +282,7 @@ def delete_user(db: Session):
             console.print("[yellow]No users found.[/yellow]")
             return
 
-        choices = [(user, f"ID: {user.id}, Telegram: {user.telegram_id}, Username: {user.username}, KYC: {'✅' if user.kyc else '❌'}") 
+        choices = [(user, f"@{user.username}\nTelegram ID: {user.telegram_id}\nKYC: {'✅' if user.kyc else '❌'}\nWallet: {user.wallet_address or 'Not generated'}") 
                   for user in users]
         
         result = radiolist_dialog(
@@ -292,7 +292,7 @@ def delete_user(db: Session):
         ).run()
 
         if result:
-            confirmation = prompt(f"Type 'DELETE' to confirm deletion of user {result.telegram_id}: ")
+            confirmation = prompt(f"Type 'DELETE' to confirm deletion of @{result.username}: ")
             if confirmation != "DELETE":
                 console.print("[yellow]Operation cancelled.[/yellow]")
                 return
