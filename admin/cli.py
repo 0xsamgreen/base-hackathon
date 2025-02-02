@@ -22,82 +22,77 @@ def get_db():
 def list_pending_kyc(db: Session):
     """List all users with pending KYC."""
     try:
-        # We'll need to import the User model here
         from backend.app.models.user import User
         users = db.query(User).filter(User.kyc == False).all()
         
         if not users:
-            console.print("[yellow]No pending KYC verifications found.[/yellow]")
-            return
+            choices = [(
+                "no_users",
+                "No Pending KYC Requests\n"
+                "There are no users awaiting KYC verification."
+            )]
+        else:
+            choices = [(user, f"@{user.username}\n"
+                             f"Full Name: {user.full_name}\n"
+                             f"Birthday: {user.birthday}\n"
+                             f"Phone: {user.phone}\n"
+                             f"Email: {user.email}\n"
+                             f"Telegram ID: {user.telegram_id}")
+                      for user in users]
+        
+        result = radiolist_dialog(
+            title="Pending KYC Requests",
+            text="Select a user to view details:",
+            values=choices
+        ).run()
 
-        table = Table(show_header=True, header_style="bold magenta", show_lines=True)
-        table.add_column("ID", style="cyan")
-        table.add_column("Telegram ID", style="cyan")
-        table.add_column("Username", style="green")
-        table.add_column("Full Name", style="green")
-        table.add_column("Birthday", style="yellow")
-        table.add_column("Phone", style="yellow")
-        table.add_column("Email", style="yellow")
-        table.add_column("Wallet Address", style="magenta")
-        table.add_column("PIN", style="red")
-        table.add_column("KYC Status", style="blue")
+        if result and isinstance(result, User):
+            console.print("\n[bold blue]Selected User Details[/bold blue]")
+            console.print(f"Username: @{result.username}")
+            console.print(f"Full Name: {result.full_name}")
+            console.print(f"Birthday: {result.birthday}")
+            console.print(f"Phone: {result.phone}")
+            console.print(f"Email: {result.email}")
+            console.print(f"Telegram ID: {result.telegram_id}")
+            console.print(f"PIN: {result.pin}")
 
-        for user in users:
-            table.add_row(
-                str(user.id),
-                str(user.telegram_id),
-                user.username or "N/A",
-                user.full_name or "N/A",
-                user.birthday or "N/A",
-                user.phone or "N/A",
-                user.email or "N/A",
-                user.wallet_address or "N/A",
-                user.pin or "N/A",
-                "Pending" if not user.kyc else "Approved"
-            )
-
-        console.print(table)
     except Exception as e:
         console.print(f"[red]Error listing users: {e}[/red]")
 
 def list_approved_users(db: Session):
     """List all users with approved KYC."""
     try:
-        # Import User model
         from backend.app.models.user import User
         users = db.query(User).filter(User.kyc == True).all()
         
         if not users:
-            console.print("[yellow]No approved users found.[/yellow]")
-            return
+            choices = [(
+                "no_users",
+                "No Approved Users\n"
+                "There are no KYC-approved users in the system."
+            )]
+        else:
+            choices = [(user, f"@{user.username}\n"
+                             f"Full Name: {user.full_name}\n"
+                             f"Wallet: {user.wallet_address}\n"
+                             f"Telegram ID: {user.telegram_id}")
+                      for user in users]
+        
+        result = radiolist_dialog(
+            title="Approved Users",
+            text="Select a user to view details:",
+            values=choices
+        ).run()
 
-        table = Table(show_header=True, header_style="bold magenta", show_lines=True)
-        table.add_column("ID", style="cyan")
-        table.add_column("Telegram ID", style="cyan")
-        table.add_column("Username", style="green")
-        table.add_column("Full Name", style="green")
-        table.add_column("Birthday", style="yellow")
-        table.add_column("Phone", style="yellow")
-        table.add_column("Email", style="yellow")
-        table.add_column("Wallet Address", style="magenta")
-        table.add_column("PIN", style="red")
-        table.add_column("KYC Status", style="blue")
+        if result and isinstance(result, User):
+            console.print("\n[bold blue]Selected User Details[/bold blue]")
+            console.print(f"Username: @{result.username}")
+            console.print(f"Full Name: {result.full_name}")
+            console.print(f"Wallet Address: {result.wallet_address}")
+            console.print(f"Telegram ID: {result.telegram_id}")
+            console.print(f"Email: {result.email}")
+            console.print(f"Phone: {result.phone}")
 
-        for user in users:
-            table.add_row(
-                str(user.id),
-                str(user.telegram_id),
-                user.username or "N/A",
-                user.full_name or "N/A",
-                user.birthday or "N/A",
-                user.phone or "N/A",
-                user.email or "N/A",
-                user.wallet_address or "N/A",
-                user.pin or "N/A",
-                "Pending" if not user.kyc else "Approved"
-            )
-
-        console.print(table)
     except Exception as e:
         console.print(f"[red]Error listing approved users: {e}[/red]")
 
@@ -121,11 +116,16 @@ def approve_kyc(db: Session):
         users = db.query(User).filter(User.kyc == False).all()
         
         if not users:
-            console.print("[yellow]No pending KYC verifications found.[/yellow]")
-            return
-
-        choices = [(user, f"@{user.username}\nTelegram ID: {user.telegram_id}\nFull Name: {user.full_name}") 
-                  for user in users]
+            choices = [(
+                "no_users",
+                "No Pending KYC Requests\n"
+                "There are no users awaiting KYC verification."
+            )]
+        else:
+            choices = [(user, f"@{user.username}\n"
+                             f"Full Name: {user.full_name}\n"
+                             f"Telegram ID: {user.telegram_id}")
+                      for user in users]
         
         result = radiolist_dialog(
             title="Select User for KYC Approval",
@@ -133,7 +133,7 @@ def approve_kyc(db: Session):
             values=choices
         ).run()
 
-        if result:
+        if result and isinstance(result, User):
             # Use API to update KYC status with retries
             import requests
             from requests.adapters import HTTPAdapter
@@ -162,8 +162,6 @@ def approve_kyc(db: Session):
                     console.print(f"[green]Wallet generated: {user_data['wallet_address']}[/green]")
             else:
                 console.print(f"[red]Error from API: {response.text}[/red]")
-        else:
-            console.print("[yellow]Operation cancelled.[/yellow]")
     except Exception as e:
         console.print(f"[red]Error approving KYC: {e}[/red]")
 
@@ -177,18 +175,25 @@ def show_backend_wallet(db: Session):
         address = os.getenv('BACKEND_WALLET_ADDRESS')
         private_key = os.getenv('BACKEND_WALLET_PRIVATE_KEY')
         if not address or not private_key:
-            console.print("[yellow]No backend wallet found. One will be created on next backend startup.[/yellow]")
-            return
-            
-        table = Table(show_header=True, header_style="bold magenta", show_lines=True)
-        table.add_column("Property", style="cyan")
-        table.add_column("Value", style="green")
+            choices = [(
+                "no_wallet",
+                "No Backend Wallet\n"
+                "A new wallet will be created on next backend startup."
+            )]
+        else:
+            choices = [(
+                "wallet_info",
+                f"Backend Wallet\n"
+                f"Address: {address}\n"
+                f"Private Key: {private_key}"
+            )]
         
-        table.add_row("Address", address)
-        table.add_row("Private Key", private_key)
-        
-        console.print("\n[bold blue]Backend Wallet Info[/bold blue]")
-        console.print(table)
+        result = radiolist_dialog(
+            title="Backend Wallet Information",
+            text="System wallet details:",
+            values=choices
+        ).run()
+
     except Exception as e:
         console.print(f"[red]Error showing backend wallet info: {e}[/red]")
 
@@ -197,11 +202,25 @@ def regenerate_backend_wallet(db: Session):
     try:
         from backend.app.services.backend_wallet import BackendWalletService
         
-        console.print("[yellow]WARNING: This will create a new backend wallet. The old wallet and its funds will no longer be accessible![/yellow]")
-        confirmation = prompt("Type 'CONFIRM' to proceed: ")
+        warning_choices = [(
+            "confirm",
+            "WARNING\n"
+            "This will create a new backend wallet.\n"
+            "The old wallet and its funds will no longer be accessible!\n\n"
+            "Select to proceed with regeneration"
+        )]
         
+        result = radiolist_dialog(
+            title="Regenerate Backend Wallet",
+            text="Are you sure you want to proceed?",
+            values=warning_choices
+        ).run()
+        
+        if not result:
+            return
+            
+        confirmation = prompt("Type 'CONFIRM' to proceed with wallet regeneration: ")
         if confirmation != "CONFIRM":
-            console.print("[yellow]Operation cancelled.[/yellow]")
             return
             
         wallet_service = BackendWalletService()
@@ -210,8 +229,18 @@ def regenerate_backend_wallet(db: Session):
         wallet = loop.run_until_complete(wallet_service.create_wallet())
         loop.close()
         
-        console.print("[green]Backend wallet regenerated successfully![/green]")
-        console.print(f"[green]New wallet address: {wallet['address']}[/green]")
+        success_choices = [(
+            "success",
+            f"Wallet Regenerated Successfully\n"
+            f"New Address: {wallet['address']}"
+        )]
+        
+        radiolist_dialog(
+            title="Success",
+            text="Backend wallet has been regenerated:",
+            values=success_choices
+        ).run()
+        
     except Exception as e:
         console.print(f"[red]Error regenerating backend wallet: {e}[/red]")
 
@@ -222,23 +251,29 @@ def send_eth_to_user(db: Session):
         users = db.query(User).filter(User.kyc == True).all()
         
         if not users:
-            console.print("[yellow]No approved users found.[/yellow]")
-            return
-
-        choices = [(user, f"@{user.username}\nWallet: {user.wallet_address}") 
-                  for user in users if user.wallet_address]
+            choices = [(
+                "no_users",
+                "No Approved Users\n"
+                "There are no KYC-approved users in the system."
+            )]
+        else:
+            choices = [(user, f"@{user.username}\nWallet: {user.wallet_address}") 
+                      for user in users if user.wallet_address]
+            
+            if not choices:
+                choices = [(
+                    "no_wallets",
+                    "No Wallet Users\n"
+                    "No approved users have wallets generated yet."
+                )]
         
-        if not choices:
-            console.print("[yellow]No users with wallet addresses found.[/yellow]")
-            return
-
         result = radiolist_dialog(
             title="Select User to Send ETH",
             text="Choose a user:",
             values=choices
         ).run()
 
-        if result:
+        if result and isinstance(result, User):
             amount = prompt("Enter amount of ETH to send: ")
             try:
                 float(amount)  # Validate amount is a number
@@ -248,7 +283,6 @@ def send_eth_to_user(db: Session):
 
             confirmation = prompt(f"Type 'CONFIRM' to send {amount} ETH to @{result.username} ({result.wallet_address}): ")
             if confirmation != "CONFIRM":
-                console.print("[yellow]Operation cancelled.[/yellow]")
                 return
 
             from backend.app.services.backend_wallet import BackendWalletService
@@ -267,8 +301,6 @@ def send_eth_to_user(db: Session):
             console.print("[green]Transaction sent successfully![/green]")
             console.print(f"[green]Transaction hash: {tx_hash}[/green]")
             console.print(f"[green]View on explorer: https://sepolia.basescan.org/tx/{tx_hash}[/green]")
-        else:
-            console.print("[yellow]Operation cancelled.[/yellow]")
     except Exception as e:
         console.print(f"[red]Error sending ETH: {e}[/red]")
 
@@ -279,11 +311,17 @@ def delete_user(db: Session):
         users = db.query(User).all()
         
         if not users:
-            console.print("[yellow]No users found.[/yellow]")
-            return
-
-        choices = [(user, f"@{user.username}\nTelegram ID: {user.telegram_id}\nKYC: {'✅' if user.kyc else '❌'}\nWallet: {user.wallet_address or 'Not generated'}") 
-                  for user in users]
+            choices = [(
+                "no_users",
+                "No Users Found\n"
+                "There are no users in the system."
+            )]
+        else:
+            choices = [(user, f"@{user.username}\n"
+                             f"Telegram ID: {user.telegram_id}\n"
+                             f"KYC: {'Yes' if user.kyc else 'No'}\n"
+                             f"Wallet: {user.wallet_address or 'Not generated'}")
+                      for user in users]
         
         result = radiolist_dialog(
             title="Select User to Delete",
@@ -291,10 +329,9 @@ def delete_user(db: Session):
             values=choices
         ).run()
 
-        if result:
+        if result and isinstance(result, User):
             confirmation = prompt(f"Type 'DELETE' to confirm deletion of @{result.username}: ")
             if confirmation != "DELETE":
-                console.print("[yellow]Operation cancelled.[/yellow]")
                 return
             
             # Delete user's quiz completions first
@@ -306,49 +343,52 @@ def delete_user(db: Session):
             db.commit()
             
             console.print(f"[green]User {result.telegram_id} deleted successfully![/green]")
-        else:
-            console.print("[yellow]Operation cancelled.[/yellow]")
     except Exception as e:
         console.print(f"[red]Error deleting user: {e}[/red]")
 
 def main_menu():
     """Display the main menu and handle user input."""
     while True:
-        console.print("\n[bold blue]Admin CLI Menu[/bold blue]")
-        console.print("1. List Pending KYC")
-        console.print("2. Approve KYC")
-        console.print("3. List Approved Users")
-        console.print("4. Show Backend Wallet Info")
-        console.print("5. Regenerate Backend Wallet")
-        console.print("6. Send ETH to User")
-        console.print("7. Delete User")
-        console.print("8. Exit")
+        choices = [
+            ("list_pending", "List Pending KYC"),
+            ("approve", "Approve KYC"),
+            ("list_approved", "List Approved Users"),
+            ("wallet_info", "Backend Wallet"),
+            ("regenerate", "Regenerate Wallet"),
+            ("send_eth", "Send ETH"),
+            ("delete", "Delete User"),
+            ("exit", "Exit")
+        ]
         
-        choice = prompt("Select an option: ")
+        result = radiolist_dialog(
+            title="Base Hackathon Admin CLI",
+            text="Select an operation:",
+            values=choices
+        ).run()
         
-        db = get_db()
-        
-        if choice == "1":
-            list_pending_kyc(db)
-        elif choice == "2":
-            approve_kyc(db)
-        elif choice == "3":
-            list_approved_users(db)
-        elif choice == "4":
-            show_backend_wallet(db)
-        elif choice == "5":
-            regenerate_backend_wallet(db)
-        elif choice == "6":
-            send_eth_to_user(db)
-        elif choice == "7":
-            delete_user(db)
-        elif choice == "8":
+        if not result or result == "exit":
             console.print("[yellow]Goodbye![/yellow]")
             break
-        else:
-            console.print("[red]Invalid option. Please try again.[/red]")
+            
+        db = get_db()
         
-        db.close()
+        try:
+            if result == "list_pending":
+                list_pending_kyc(db)
+            elif result == "approve":
+                approve_kyc(db)
+            elif result == "list_approved":
+                list_approved_users(db)
+            elif result == "wallet_info":
+                show_backend_wallet(db)
+            elif result == "regenerate":
+                regenerate_backend_wallet(db)
+            elif result == "send_eth":
+                send_eth_to_user(db)
+            elif result == "delete":
+                delete_user(db)
+        finally:
+            db.close()
 
 if __name__ == "__main__":
     try:
