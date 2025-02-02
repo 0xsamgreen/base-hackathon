@@ -21,7 +21,7 @@ from ..config import get_settings
 # Configure logging to be less verbose
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.WARNING  # Only show warnings and errors
+    level=logging.INFO  # Show info, warnings, and errors
 )
 logger = logging.getLogger(__name__)
 
@@ -33,17 +33,28 @@ NAME, BIRTHDAY, PHONE, EMAIL, PIN = range(5)
 QUIZ_START, QUIZ_Q1, QUIZ_Q2, QUIZ_Q3 = range(5, 9)
 
 # Quiz content
-TRAINING_TEXT = """
-How to Clean Solar Panels
+TRAINING_TEXT = """🌞 Solar Panel Cleaning Guide
 
-Turn off your solar panel system for safety.
-Use a soft-bristle brush with a long handle to avoid rooftop risks.
-Prepare a cleaning solution with mild, biodegradable soap and water, or use soap-free brushes.
-Gently scrub the panel surface while standing safely on the ground.
-Rinse with a hose using a gentle spray nozzle to remove dirt and soap residue.
-Avoid harsh chemicals, pressure washers, and abrasive tools to prevent damage.
-For snow removal, use a soft roof rake with a plastic blade, starting from the lower edge.
-Best done early morning or late afternoon to avoid heat stress on panels. If in doubt, let rain do the work or hire a professional.
+Safety First:
+• Turn off your solar panel system
+• Stay on the ground - use long-handled tools
+• Work in early morning or late afternoon
+
+Cleaning Steps:
+1. Mix mild soap with water (or use soap-free brushes)
+2. Use soft-bristle brush with long handle
+3. Gently clean panel surface
+4. Rinse with gentle spray
+
+❌ Never Use:
+• Harsh chemicals
+• Pressure washers
+• Abrasive tools
+
+❄️ For Snow:
+• Use soft roof rake with plastic blade
+• Start from lower edge
+• When in doubt, let nature do the work
 """
 
 QUIZ_QUESTIONS = [
@@ -130,9 +141,12 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle button presses."""
     query = update.callback_query
+    logger.info(f"Received callback data: {query.data}")
+    logger.info(f"Current conversation state: {context.user_data.get('state', 'None')}")
     await query.answer()
     
     if query.data == "unavailable":
+        logger.info("User clicked unavailable feature")
         await query.answer("This feature is not available yet", show_alert=True)
         return
     
@@ -144,28 +158,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return NAME
     
     if query.data == "quiz":
+        logger.info(f"User {update.effective_user.id} starting quiz flow")
         db = next(get_db())
         user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+        logger.info(f"Found user: {user.id} (Telegram ID: {user.telegram_id})")
         
-        # Check if user has already completed the quiz
+        # Check if user has already passed the quiz
         quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
-        completion = db.query(UserQuizCompletion).filter(
+        logger.info(f"Found quiz: {quiz.id} - {quiz.name}")
+        
+        passed_quiz = db.query(UserQuizCompletion).filter(
             UserQuizCompletion.user_id == user.id,
             UserQuizCompletion.quiz_id == quiz.id,
             UserQuizCompletion.passed == True
         ).first()
+        logger.info(f"Previous passed quiz completion: {passed_quiz is not None}")
         
-        if completion:
+        if passed_quiz:
             await query.message.reply_text(
-                "You've already completed and passed this quiz! 🎉"
+                "You've already passed this quiz and received your reward! 🎉"
             )
             return
         
         # Show training text
-            quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
-            await query.message.reply_text(
-                f"Let's learn about solar panel cleaning! 📚\n\n{TRAINING_TEXT}\n\n"
-                f"Would you like to take a quiz and earn 1 USDC + {quiz.eth_reward_amount} ETH?",
+        quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
+        await query.message.reply_text(
+            f"Let's learn about solar panel cleaning! 📚\n\n{TRAINING_TEXT}\n\n"
+            f"Ready to test your knowledge? Complete the quiz correctly to earn {quiz.eth_reward_amount} ETH (≈ $0.02)!\n\n"
+            f"Would you like to start the quiz?",
             reply_markup=InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("Yes", callback_data="quiz_start"),
@@ -173,10 +193,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
             ])
         )
+        logger.info(f"Transitioning to QUIZ_START state for user {update.effective_user.id}")
         return QUIZ_START
         
     elif query.data == "quiz_start":
+        logger.info(f"User {update.effective_user.id} starting quiz questions")
         context.user_data['quiz_score'] = 0
+        logger.info("Quiz score initialized to 0")
         await query.message.reply_text(
             f"Question 1: {QUIZ_QUESTIONS[0]['question']}",
             reply_markup=InlineKeyboardMarkup([
@@ -184,12 +207,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for i, opt in enumerate(QUIZ_QUESTIONS[0]['options'])
             ])
         )
+        logger.info(f"Transitioning to QUIZ_Q1 state for user {update.effective_user.id}")
         return QUIZ_Q1
         
     elif query.data.startswith("q1_"):
         selected = int(query.data.split("_")[1])
+        logger.info(f"User {update.effective_user.id} answered Q1: selected={selected}, correct={QUIZ_QUESTIONS[0]['correct']}")
+        context.user_data['quiz_score'] = 0  # Reset score at start
         if selected == QUIZ_QUESTIONS[0]['correct']:
-            context.user_data['quiz_score'] = context.user_data.get('quiz_score', 0) + 1
+            context.user_data['quiz_score'] += 1
+            logger.info(f"Q1 correct, score now: {context.user_data['quiz_score']}")
+        else:
+            logger.info("Q1 incorrect")
         
         await query.message.reply_text(
             f"Question 2: {QUIZ_QUESTIONS[1]['question']}",
@@ -198,12 +227,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for i, opt in enumerate(QUIZ_QUESTIONS[1]['options'])
             ])
         )
+        logger.info(f"Transitioning to QUIZ_Q2 state for user {update.effective_user.id}")
         return QUIZ_Q2
         
     elif query.data.startswith("q2_"):
         selected = int(query.data.split("_")[1])
+        logger.info(f"User {update.effective_user.id} answered Q2: selected={selected}, correct={QUIZ_QUESTIONS[1]['correct']}")
         if selected == QUIZ_QUESTIONS[1]['correct']:
-            context.user_data['quiz_score'] = context.user_data.get('quiz_score', 0) + 1
+            context.user_data['quiz_score'] += 1
+            logger.info(f"Q2 correct, score now: {context.user_data['quiz_score']}")
+        else:
+            logger.info("Q2 incorrect")
         
         await query.message.reply_text(
             f"Question 3: {QUIZ_QUESTIONS[2]['question']}",
@@ -212,58 +246,72 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 for i, opt in enumerate(QUIZ_QUESTIONS[2]['options'])
             ])
         )
+        logger.info(f"Transitioning to QUIZ_Q3 state for user {update.effective_user.id}")
         return QUIZ_Q3
         
     elif query.data.startswith("q3_"):
         selected = int(query.data.split("_")[1])
+        logger.info(f"User {update.effective_user.id} answered Q3: selected={selected}, correct={QUIZ_QUESTIONS[2]['correct']}")
         if selected == QUIZ_QUESTIONS[2]['correct']:
-            context.user_data['quiz_score'] = context.user_data.get('quiz_score', 0) + 1
+            context.user_data['quiz_score'] += 1
+            logger.info(f"Q3 correct, score now: {context.user_data['quiz_score']}")
+        else:
+            logger.info("Q3 incorrect")
         
         score = context.user_data.get('quiz_score', 0)
         passed = score == 3
+        logger.info(f"Quiz completed - Final score: {score}, Passed: {passed}")
         
-        # Save quiz results
-        db = next(get_db())
-        user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
-        quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
-        
-        completion = UserQuizCompletion(
-            user_id=user.id,
-            quiz_id=quiz.id,
-            score=score,
-            passed=passed
-        )
-        db.add(completion)
-        db.commit()
+        # Only save completion record if they passed
+        if passed:
+            db = next(get_db())
+            user = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+            logger.info(f"Retrieved user for completion: {user.id}")
+            quiz = db.query(Quiz).filter(Quiz.name == "Solar Panel Cleaning").first()
+            logger.info(f"Retrieved quiz for completion: {quiz.id}")
+            
+            completion = UserQuizCompletion(
+                user_id=user.id,
+                quiz_id=quiz.id,
+                score=score,
+                passed=passed
+            )
+            logger.info(f"Created completion record: user_id={user.id}, quiz_id={quiz.id}, score={score}, passed={passed}")
+            
+            try:
+                db.add(completion)
+                db.commit()
+                logger.info("Successfully saved quiz completion")
+            except Exception as e:
+                logger.error(f"Error saving quiz completion: {e}")
+                db.rollback()
+                raise
         
         if passed:
             # Send ETH reward
             try:
                 wallet_service = BackendWalletService()
                 wallet_info = wallet_service.get_wallet_info()
+                logger.info(f"Retrieved backend wallet info: {wallet_info['address']}")
                 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                tx_hash = await loop.run_until_complete(wallet_service.sendTransaction(
+                logger.info(f"Sending {quiz.eth_reward_amount} ETH to {user.wallet_address}")
+                tx_hash = await wallet_service.sendTransaction(
                     wallet_info['private_key'],
                     user.wallet_address,
                     quiz.eth_reward_amount
-                ))
-                loop.close()
+                )
+                logger.info(f"ETH reward sent successfully, tx_hash: {tx_hash}")
 
                 await query.message.reply_text(
                     "🎉 Congratulations! You got all questions correct!\n\n"
-                    f"Your rewards:\n"
-                    f"- 1 USDC will be sent shortly\n"
-                    f"- {quiz.eth_reward_amount} ETH has been sent!\n\n"
+                    f"Your reward of {quiz.eth_reward_amount} ETH (≈ $0.02) has been sent!\n\n"
                     f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}"
                 )
             except Exception as e:
                 logger.error(f"Error sending ETH reward: {e}")
                 await query.message.reply_text(
                     "🎉 Congratulations! You got all questions correct!\n\n"
-                    "Your reward of 1 USDC will be sent shortly.\n"
-                    "Note: There was an issue sending the ETH reward. Please contact support."
+                    "There was an issue sending your ETH reward. Please contact support."
                 )
         else:
             await query.message.reply_text(
@@ -271,12 +319,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Feel free to try again after reviewing the training material!"
             )
         
+        logger.info(f"Ending conversation for user {update.effective_user.id} after quiz completion")
         return ConversationHandler.END
         
     elif query.data == "quiz_cancel":
         await query.message.reply_text(
             "No problem! You can take the quiz anytime by selecting it from the menu."
         )
+        logger.info(f"Ending conversation for user {update.effective_user.id} after quiz cancellation")
         return ConversationHandler.END
         
     elif query.data == "wallet":
@@ -355,7 +405,6 @@ async def collect_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                 username=update.effective_user.username,
                 kyc=False,  # Pending approval
                 full_name=context.user_data['name'],
-                birthday=context.user_data['birthday'],
                 phone=context.user_data['phone'],
                 email=context.user_data['email'],
                 pin=context.user_data['pin']
@@ -431,32 +480,44 @@ def create_application() -> Application:
     # Configure error handlers
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(f"Exception while handling an update: {context.error}")
+        logger.error(f"Error context: {context.error_context}")
+        logger.error(f"Update that caused error: {update}")
     
     application.add_error_handler(error_handler)
 
-    # Add conversation handler
-    conv_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler("start", start),
-            CallbackQueryHandler(button_callback, pattern="^(kyc|quiz|quiz_start|q1_\\d|q2_\\d|q3_\\d|quiz_cancel)$")
-        ],
+    # Create quiz handler
+    quiz_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^quiz$")],
+        states={
+            QUIZ_START: [CallbackQueryHandler(button_callback, pattern="^(quiz_start|quiz_cancel)$")],
+            QUIZ_Q1: [CallbackQueryHandler(button_callback, pattern="^q1_[0-2]$")],
+            QUIZ_Q2: [CallbackQueryHandler(button_callback, pattern="^q2_[0-2]$")],
+            QUIZ_Q3: [CallbackQueryHandler(button_callback, pattern="^q3_[0-2]$")],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
+        name="quiz"
+    )
+
+    # Create KYC handler
+    kyc_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(button_callback, pattern="^kyc$")],
         states={
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_name)],
             BIRTHDAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_birthday)],
             PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_phone)],
             EMAIL: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_email)],
             PIN: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_pin)],
-            QUIZ_START: [CallbackQueryHandler(button_callback, pattern="^(quiz_start|quiz_cancel)$")],
-            QUIZ_Q1: [CallbackQueryHandler(button_callback, pattern="^q1_\\d$")],
-            QUIZ_Q2: [CallbackQueryHandler(button_callback, pattern="^q2_\\d$")],
-            QUIZ_Q3: [CallbackQueryHandler(button_callback, pattern="^q3_\\d$")],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
-        allow_reentry=True
+        allow_reentry=True,
+        name="kyc"
     )
     
     # Add handlers
-    application.add_handler(conv_handler)
+    application.add_handler(quiz_handler)
+    application.add_handler(kyc_handler)
+    application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", menu))
     application.add_handler(CallbackQueryHandler(button_callback))
 

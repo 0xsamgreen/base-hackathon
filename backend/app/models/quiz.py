@@ -9,7 +9,7 @@ class Quiz(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    reward_amount = Column(DECIMAL(10,2), nullable=False)  # USDC reward
+    reward_amount = Column(String, nullable=False)  # USDC reward amount as string
     eth_reward_amount = Column(String, nullable=False, default="0.00001")  # ETH reward
 
 class UserQuizCompletion(Base):
@@ -22,3 +22,6 @@ class UserQuizCompletion(Base):
     completed_at = Column(TIMESTAMP, server_default=func.now())
     score = Column(Integer, nullable=False)
     passed = Column(Boolean, nullable=False)
+    
+    # Remove unique constraint to allow multiple attempts
+    __table_args__ = ()

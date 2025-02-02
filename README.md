@@ -65,7 +65,7 @@ The Telegram bot features a dynamic menu system:
 
 2. **Available After KYC Approval**
    - "Get Wallet Address" - View your Base wallet address
-   - "Learn to Clean Panels and Earn" - Take a quiz about solar panel cleaning to earn USDC
+   - "Learn to Clean Panels and Earn" - Take a quiz about solar panel cleaning to earn ETH
    
 3. **Coming Soon** (Greyed Out)
    - "Train our AI and Earn"
@@ -85,6 +85,7 @@ Each service runs independently in its own terminal:
    - Handles user interactions
    - Collects KYC information
    - Notifies users of approval status
+   - Manages quiz system and rewards
 
 3. **Admin CLI** (`./dev.sh admin`)
    - Reviews pending KYC requests
@@ -102,19 +103,14 @@ The services are designed to run independently, so you can:
 - Keep the admin CLI running while restarting other services
 - Start/stop services as needed without impacting others
 
-The system consists of three main components:
-
-1. Telegram Bot - Handles user KYC data collection
-2. Admin CLI - For KYC approval and user management
-3. Backend API - Manages data and wallet operations
-
 ## Project Goals
 
 - Provide a seamless KYC process through Telegram
 - Generate Base blockchain wallets for approved users (using viem)
 - Maintain secure user data handling
 - Enable admin oversight of KYC process
-- Distribute rewards through backend wallet
+- Distribute ETH rewards through backend wallet
+- Engage users with educational quizzes
 
 ## Dependencies
 
@@ -141,6 +137,8 @@ The system consists of three main components:
   - Collects user KYC information
   - Handles user interactions
   - Notifies users of KYC status
+  - Manages quiz system
+  - Handles reward distribution
 
 - **Backend API** (`backend/app/`):
   - FastAPI-based REST API
@@ -148,6 +146,7 @@ The system consists of three main components:
   - Handles wallet generation using viem
   - SQLite database integration
   - Manages backend reward wallet
+  - Tracks quiz completions
 
 - **Admin CLI** (`admin/`):
   - Reviews pending KYC requests
@@ -237,13 +236,20 @@ To use the admin interface:
    - Upon approval, system generates Base wallet
    - User receives notification via Telegram
 
+3. Quiz and Rewards:
+   - Complete KYC to unlock quiz feature
+   - Learn about solar panel cleaning
+   - Answer quiz questions correctly
+   - Earn ETH rewards automatically
+
 ## Technical Details
 
 - **Database**: SQLite (file: base-hackathon.db)
 - **API**: FastAPI on port 8000
 - **Wallet Generation**: viem (TypeScript)
 - **Network**: Base Sepolia testnet
-- **Reward System**: Backend wallet for USDC distribution
+- **Reward System**: Backend wallet for ETH distribution
+- **Quiz System**: Automated scoring and reward distribution
 
 ## Troubleshooting
 
@@ -265,6 +271,7 @@ If you encounter errors during wallet generation (usually during KYC approval):
 - If wallet generation fails, try reinstalling Node.js dependencies as described above
 - For database issues, you can reinitialize it using `python init_db.py`
 - For backend wallet issues, use admin CLI to regenerate wallet (requires confirmation)
+- For quiz completion issues, check the database migrations are up to date
 
 ## Project Structure
 
@@ -280,7 +287,9 @@ If you encounter errors during wallet generation (usually during KYC approval):
 │   │   ├── schemas/   # Pydantic schemas
 │   │   └── services/  # Business logic
 │   └── requirements.txt
-└── dev.sh             # Development utilities
+├── db/
+│   └── migrations/    # Database migrations
+└── dev.sh            # Development utilities
 ```
 
 ## Contributing
@@ -288,6 +297,7 @@ If you encounter errors during wallet generation (usually during KYC approval):
 1. Keep services modular and independent
 2. Follow existing patterns for new features
 3. Update documentation for significant changes
+4. Run database migrations when needed
 
 ## Current Status
 
@@ -300,10 +310,12 @@ If you encounter errors during wallet generation (usually during KYC approval):
 - Process management with dev.sh
 - Robust rate limit handling
 - Automatic notifications on KYC approval
-- Learn to Clean Quiz with USDC rewards
+- Learn to Clean Quiz with ETH rewards
 - Backend wallet for reward distribution
 - Admin wallet management tools
 - Direct ETH transfers to users
+- Quiz completion tracking
+- Automated reward distribution
 
 🚧 In Development:
 - AI training earning opportunity
@@ -318,3 +330,6 @@ If you encounter errors during wallet generation (usually during KYC approval):
 - [ ] Multi-admin support
 - [ ] Automated testing
 - [ ] CI/CD pipeline
+- [ ] Quiz retry functionality
+- [ ] Additional quiz topics
+- [ ] Quiz performance analytics
