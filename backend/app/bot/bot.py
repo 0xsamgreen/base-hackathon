@@ -31,6 +31,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # Conversation states
 NAME, BIRTHDAY, PHONE, EMAIL, PIN = range(5)
 QUIZ_START, QUIZ_Q1, QUIZ_Q2, QUIZ_Q3 = range(5, 9)
+SEND_SELECT_USER, SEND_AMOUNT = range(9, 11)
 
 # Quiz content
 TRAINING_TEXT = """🌞 Solar Panel Cleaning Guide
@@ -112,6 +113,13 @@ def build_menu(user: User = None) -> InlineKeyboardMarkup:
     buttons.append([InlineKeyboardButton(quiz_text,
         callback_data="quiz" if user and user.kyc else "unavailable")])
     
+    # Send ETH feature - active if KYC approved
+    send_text = "Send ETH on Base"
+    if not user or not user.kyc:
+        send_text = "⚪️ Send ETH on Base (Complete KYC First)"
+    buttons.append([InlineKeyboardButton(send_text,
+        callback_data="send_eth" if user and user.kyc else "unavailable")])
+    
     # Future feature - greyed out
     buttons.append([InlineKeyboardButton("⚪️ Train our AI and Earn (Coming Soon)", 
         callback_data="unavailable")])
@@ -156,6 +164,58 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Please enter your full name:"
         )
         return NAME
+    
+    if query.data == "send_eth":
+        logger.info(f"User {update.effective_user.id} starting send ETH flow")
+        db = next(get_db())
+        sender = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+        
+        if not sender or not sender.kyc:
+            await query.message.reply_text("Please complete KYC first")
+            return ConversationHandler.END
+            
+        # Get list of KYC-approved users except current user
+        users = db.query(User).filter(
+            User.kyc == True,
+            User.telegram_id != update.effective_user.id,
+            User.wallet_address != None
+        ).all()
+        
+        if not users:
+            await query.message.reply_text("No users available to send ETH to.")
+            return ConversationHandler.END
+            
+        # Create buttons for each user
+        buttons = [
+            [InlineKeyboardButton(f"@{user.username}", callback_data=f"select_user_{user.id}")]
+            for user in users
+        ]
+        buttons.append([InlineKeyboardButton("Cancel", callback_data="send_cancel")])
+        
+        await query.message.reply_text(
+            "Select a user to send ETH to:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        return SEND_SELECT_USER
+        
+    elif query.data.startswith("select_user_"):
+        user_id = int(query.data.split("_")[2])
+        context.user_data['recipient_id'] = user_id
+        
+        db = next(get_db())
+        recipient = db.query(User).filter(User.id == user_id).first()
+        
+        await query.message.reply_text(
+            f"How much ETH would you like to send to @{recipient.username}?\n"
+            "Enter the amount (e.g., 0.01):"
+        )
+        return SEND_AMOUNT
+        
+    elif query.data == "send_cancel":
+        await query.message.reply_text(
+            "ETH transfer cancelled. Use /menu to see available options."
+        )
+        return ConversationHandler.END
     
     if query.data == "quiz":
         logger.info(f"User {update.effective_user.id} starting quiz flow")
@@ -347,6 +407,88 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await query.message.reply_text(f"Your wallet address is: {user.wallet_address}")
 
+async def handle_eth_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle ETH amount input and process the transaction."""
+    try:
+        amount = float(update.message.text)
+        if amount <= 0:
+            await update.message.reply_text("Please enter a positive amount")
+            return SEND_AMOUNT
+            
+        # Get sender and recipient info
+        db = next(get_db())
+        sender = db.query(User).filter(User.telegram_id == update.effective_user.id).first()
+        recipient = db.query(User).filter(User.id == context.user_data.get('recipient_id')).first()
+        
+        if not sender or not recipient:
+            await update.message.reply_text("Error: User not found")
+            return ConversationHandler.END
+            
+        # Send ETH
+        try:
+            wallet_service = BackendWalletService()
+            logger.info(f"Sending {amount} ETH from {sender.wallet_address} to {recipient.wallet_address}")
+            # Format amount to 18 decimal places for ETH
+            formatted_amount = "{:.18f}".format(amount)
+            tx_hash = await wallet_service.sendTransaction(
+                sender.private_key,
+                recipient.wallet_address,
+                formatted_amount
+            )
+            logger.info(f"ETH sent successfully, tx_hash: {tx_hash}")
+            
+            # Notify sender
+            await update.message.reply_text(
+                f"✅ Successfully sent {amount} ETH to @{recipient.username}!\n\n"
+                f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}"
+            )
+            
+            # Schedule recipient notification as a background task
+            async def notify_recipient():
+                bot = Bot(token=get_settings().TELEGRAM_BOT_TOKEN)
+                max_retries = 3
+                retry_delay = 60  # Start with 1 minute delay
+                
+                try:
+                    for attempt in range(max_retries):
+                        try:
+                            await bot.send_message(
+                                chat_id=recipient.telegram_id,
+                                text=f"🎉 You received {amount} ETH from @{sender.username}!\n\n"
+                                     f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}",
+                                parse_mode='Markdown'
+                            )
+                            break
+                        except Exception as e:
+                            if "Flood control exceeded" in str(e) and attempt < max_retries - 1:
+                                logger.warning(f"Rate limited, waiting {retry_delay} seconds...")
+                                await asyncio.sleep(retry_delay)
+                                retry_delay *= 2  # Exponential backoff
+                                continue
+                            logger.error(f"Failed to notify recipient: {e}")
+                            break
+                finally:
+                    try:
+                        await bot.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing bot in background task: {e}")
+            
+            # Start notification task in background and ignore any errors
+            task = asyncio.create_task(notify_recipient())
+            task.add_done_callback(lambda t: t.exception() if t.exception() else None)
+                
+        except Exception as e:
+            logger.error(f"Error sending ETH: {e}")
+            await update.message.reply_text(
+                "Sorry, there was an error sending ETH. Please try again later."
+            )
+            
+    except ValueError:
+        await update.message.reply_text("Please enter a valid number")
+        return SEND_AMOUNT
+        
+    return ConversationHandler.END
+
 async def collect_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Collect user's name and ask for birthday."""
     context.user_data['name'] = update.message.text
@@ -429,7 +571,7 @@ async def collect_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancel the conversation."""
     await update.message.reply_text(
-        "KYC process cancelled. You can start again with /start"
+        "Operation cancelled. Use /menu to see available options."
     )
     return ConversationHandler.END
 
@@ -499,6 +641,25 @@ def create_application() -> Application:
         name="quiz"
     )
 
+    # Create send ETH handler
+    send_eth_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(button_callback, pattern="^send_eth$"),
+            CallbackQueryHandler(button_callback, pattern="^select_user_\\d+$")
+        ],
+        states={
+            SEND_SELECT_USER: [
+                CallbackQueryHandler(button_callback, pattern="^select_user_\\d+$"),
+                CallbackQueryHandler(button_callback, pattern="^send_cancel$")
+            ],
+            SEND_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_eth_amount)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+        allow_reentry=True,
+        name="send_eth",
+        persistent=False
+    )
+
     # Create KYC handler
     kyc_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(button_callback, pattern="^kyc$")],
@@ -514,11 +675,12 @@ def create_application() -> Application:
         name="kyc"
     )
     
-    # Add handlers
-    application.add_handler(quiz_handler)
-    application.add_handler(kyc_handler)
+    # Add handlers in correct order
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("menu", menu))
+    application.add_handler(quiz_handler)
+    application.add_handler(send_eth_handler)
+    application.add_handler(kyc_handler)
     application.add_handler(CallbackQueryHandler(button_callback))
 
     return application

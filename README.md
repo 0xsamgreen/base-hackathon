@@ -1,121 +1,59 @@
 # Base Hackathon Project
 
-A Telegram bot-based KYC system with wallet generation for Base blockchain. The system consists of three main components:
+A Telegram bot-based KYC system with wallet generation for Base blockchain. Users can complete KYC, receive a Base wallet, take educational quizzes, and earn ETH rewards.
 
 ## Quick Start
 
 ```bash
-# Clone and setup
+# Setup
 git clone git@github.com:0xsamgreen/base-hackathon.git
 cd base-hackathon
 cp .env.example .env  # Add your Telegram bot token
 
 # Install dependencies
-
-## Backend setup
 cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-deactivate
-
-# Node.js dependencies (important for wallet generation)
 npm install
-# If you encounter wallet generation errors, try:
-rm -rf node_modules && npm install
 
-## Admin setup
 cd ../admin
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-deactivate
 cd ..
 
 # Initialize database
 python init_db.py
 
 # Start services (in separate terminals)
-
-## Terminal 1 - Start backend API
-./dev.sh start
-
-## Terminal 2 - Start Telegram bot
-./dev.sh bot
-
-## Terminal 3 - Run admin interface
-./dev.sh admin
-
-# Test it out
-1. Message @basehackathon on Telegram
-2. Send /start command to see the menu
-3. Select "Enter KYC Info" to begin KYC process
-4. Complete KYC form
-5. Use admin CLI to approve and generate wallet
-6. Once approved, use /menu to access your wallet
+./dev.sh start  # Backend API
+./dev.sh bot    # Telegram bot
+./dev.sh admin  # Admin interface
 ```
 
-## Menu System
+## Features
 
-The Telegram bot features a dynamic menu system:
+- **KYC System**
+  - Collect user information via Telegram
+  - Admin review and approval
+  - Automatic Base wallet generation
 
-1. **Always Available**
-   - "Enter KYC Info" - Start the KYC process
-   - "/menu" command - Show available options
+- **Quiz System**
+  - Educational content about solar panel cleaning
+  - Multiple choice questions
+  - Automatic ETH rewards for passing
 
-2. **Available After KYC Approval**
-   - "Get Wallet Address" - View your Base wallet address
-   - "Learn to Clean Panels and Earn" - Take a quiz about solar panel cleaning to earn ETH
-   
-3. **Coming Soon** (Greyed Out)
-   - "Train our AI and Earn"
-
-The menu automatically updates based on your KYC status, with unavailable options clearly marked.
-
-## Running the Services
-
-Each service runs independently in its own terminal:
-
-1. **Backend API** (`./dev.sh start`)
-   - Handles API requests and wallet generation
-   - Runs on http://0.0.0.0:8000
-   - Must be started first
-
-2. **Telegram Bot** (`./dev.sh bot`)
-   - Handles user interactions
-   - Collects KYC information
-   - Notifies users of approval status
-   - Manages quiz system and rewards
-
-3. **Admin CLI** (`./dev.sh admin`)
-   - Reviews pending KYC requests
-   - Approves users
-   - Triggers wallet generation
-   - Shows generated wallet addresses
-   - Manages backend reward wallet
-   - Shows backend wallet balance
-   - Regenerates backend wallet if needed
-   - Sends ETH to approved users
-   - Deletes users and their quiz data
-
-The services are designed to run independently, so you can:
-- Restart the backend without affecting the bot or admin CLI
-- Keep the admin CLI running while restarting other services
-- Start/stop services as needed without impacting others
-
-## Project Goals
-
-- Provide a seamless KYC process through Telegram
-- Generate Base blockchain wallets for approved users (using viem)
-- Maintain secure user data handling
-- Enable admin oversight of KYC process
-- Distribute ETH rewards through backend wallet
-- Engage users with educational quizzes
+- **Wallet Features**
+  - Base Sepolia testnet integration
+  - View wallet address
+  - Send/receive ETH
+  - Backend wallet for reward distribution
 
 ## Dependencies
 
-- Python 3.x with venv module
-- Node.js (for wallet generation using viem)
+- Python 3.x
+- Node.js
 - SQLite3
 
 ## System Architecture
@@ -131,147 +69,22 @@ The services are designed to run independently, so you can:
                     └───────────┘
 ```
 
-### Components
+## User Flow
 
-- **Telegram Bot** (`backend/app/bot/`):
-  - Collects user KYC information
-  - Handles user interactions
-  - Notifies users of KYC status
-  - Manages quiz system
-  - Handles reward distribution
-
-- **Backend API** (`backend/app/`):
-  - FastAPI-based REST API
-  - Manages user data and KYC status
-  - Handles wallet generation using viem
-  - SQLite database integration
-  - Manages backend reward wallet
-  - Tracks quiz completions
-
-- **Admin CLI** (`admin/`):
-  - Reviews pending KYC requests
-  - Approves/manages users
-  - Monitors system status
-  - Controls backend wallet
-
-## Setup
-
-1. Clone the repository:
-   ```bash
-   git clone git@github.com:0xsamgreen/base-hackathon.git
-   cd base-hackathon
-   ```
-
-2. Create Python virtual environments:
-   ```bash
-   # Backend venv
-   cd backend
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   deactivate
-
-   # Admin venv
-   cd ../admin
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   deactivate
-   cd ..
-   ```
-
-3. Install Node.js dependencies:
-   ```bash
-   cd backend
-   npm install
-   ```
-
-4. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Edit .env and add:
-   - `TELEGRAM_BOT_TOKEN` - Your Telegram bot token
-   - Backend wallet will be auto-generated on first startup
-
-## Running the System
-
-Start all services with a single command:
-```bash
-./dev.sh start
-```
-
-This will:
-- Start the backend API (new terminal window)
-- Start the Telegram bot (new terminal window)
-- Initialize the database if needed
-- Create backend wallet if needed
-
-To use the admin interface:
-```bash
-./dev.sh admin
-```
+1. Start bot (@basehackathon)
+2. Complete KYC process
+3. Admin approves & wallet generated
+4. Access features:
+   - View wallet address
+   - Take quiz to earn ETH
+   - Send ETH to other users
 
 ## Development Commands
 
 - `./dev.sh start` - Start all services
-- `./dev.sh backend` - Run only the backend API
-- `./dev.sh bot` - Run only the Telegram bot
-- `./dev.sh admin` - Launch the admin CLI
-
-## User Flow
-
-1. User starts KYC:
-   - Message @basehackathon on Telegram
-   - Send /start command
-   - Follow prompts to enter:
-     * Full name
-     * Birthday
-     * Phone number
-     * Email
-     * PIN for wallet
-
-2. Admin approval:
-   - Admin reviews KYC in admin CLI
-   - Upon approval, system generates Base wallet
-   - User receives notification via Telegram
-
-3. Quiz and Rewards:
-   - Complete KYC to unlock quiz feature
-   - Learn about solar panel cleaning
-   - Answer quiz questions correctly
-   - Earn ETH rewards automatically
-
-## Technical Details
-
-- **Database**: SQLite (file: base-hackathon.db)
-- **API**: FastAPI on port 8000
-- **Wallet Generation**: viem (TypeScript)
-- **Network**: Base Sepolia testnet
-- **Reward System**: Backend wallet for ETH distribution
-- **Quiz System**: Automated scoring and reward distribution
-
-## Troubleshooting
-
-### Wallet Generation Issues
-If you encounter errors during wallet generation (usually during KYC approval):
-1. Ensure Node.js dependencies are properly installed:
-   ```bash
-   cd backend
-   rm -rf node_modules
-   npm install
-   ```
-2. Restart the backend server:
-   ```bash
-   ./dev.sh start
-   ```
-
-### Common Issues
-- If the backend fails to start, ensure no other process is using port 8000
-- If wallet generation fails, try reinstalling Node.js dependencies as described above
-- For database issues, you can reinitialize it using `python init_db.py`
-- For backend wallet issues, use admin CLI to regenerate wallet (requires confirmation)
-- For quiz completion issues, check the database migrations are up to date
+- `./dev.sh backend` - Run backend API
+- `./dev.sh bot` - Run Telegram bot
+- `./dev.sh admin` - Launch admin CLI
 
 ## Project Structure
 
@@ -282,54 +95,21 @@ If you encounter errors during wallet generation (usually during KYC approval):
 │   ├── app/
 │   │   ├── api/       # REST API endpoints
 │   │   ├── bot/       # Telegram bot
-│   │   ├── db/        # Database
-│   │   ├── models/    # SQLAlchemy models
-│   │   ├── schemas/   # Pydantic schemas
+│   │   ├── models/    # Database models
 │   │   └── services/  # Business logic
 │   └── requirements.txt
-├── db/
-│   └── migrations/    # Database migrations
-└── dev.sh            # Development utilities
+└── db/                # Database migrations
 ```
-
-## Contributing
-
-1. Keep services modular and independent
-2. Follow existing patterns for new features
-3. Update documentation for significant changes
-4. Run database migrations when needed
 
 ## Current Status
 
 ✅ Working Features:
-- Dynamic menu system with status indicators
-- Telegram bot KYC data collection
-- SQLite database integration
-- Admin CLI for KYC approval
-- Base Sepolia wallet generation
-- Process management with dev.sh
-- Robust rate limit handling
-- Automatic notifications on KYC approval
-- Learn to Clean Quiz with ETH rewards
-- Backend wallet for reward distribution
-- Admin wallet management tools
-- Direct ETH transfers to users
-- Quiz completion tracking
-- Automated reward distribution
+- KYC system with admin approval
+- Base wallet generation
+- Educational quiz with ETH rewards
+- Direct ETH transfers
+- Admin management tools
 
-🚧 In Development:
-- AI training earning opportunity
-- Process cleanup refinements
-
-## Future Improvements
-
-- [ ] Enhanced error handling and validation
-- [ ] User dashboard/web interface
-- [ ] Additional KYC verification methods
-- [ ] Transaction monitoring
-- [ ] Multi-admin support
-- [ ] Automated testing
-- [ ] CI/CD pipeline
-- [ ] Quiz retry functionality
-- [ ] Additional quiz topics
-- [ ] Quiz performance analytics
+🚧 Coming Soon:
+- AI training opportunity
+- Additional quiz topics
