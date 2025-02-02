@@ -7,12 +7,17 @@ from .models.user import Base
 from .db.health import wait_for_db
 from .bot.bot import create_application
 from .config import get_settings
+from .services.backend_wallet import initialize_backend_wallet
+import asyncio
 
 # Wait for database to be ready
 wait_for_db()
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Initialize backend wallet
+asyncio.run(initialize_backend_wallet())
 
 app = FastAPI(title="Hackathon API")
 

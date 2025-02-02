@@ -5,6 +5,7 @@ from rich.table import Table
 from sqlalchemy.orm import Session
 from lib.database import SessionLocal
 import sys
+import asyncio
 
 console = Console()
 
@@ -164,6 +165,51 @@ def approve_kyc(db: Session):
     except Exception as e:
         console.print(f"[red]Error approving KYC: {e}[/red]")
 
+async def show_backend_wallet(db: Session):
+    """Show backend wallet info and balance."""
+    try:
+        from backend.app.services.backend_wallet import BackendWalletService
+        
+        wallet_service = BackendWalletService()
+        if not wallet_service.has_wallet():
+            console.print("[yellow]No backend wallet found. One will be created on next backend startup.[/yellow]")
+            return
+            
+        wallet_info = wallet_service.get_wallet_info()
+        balance = await wallet_service.get_balance()
+        
+        table = Table(show_header=True, header_style="bold magenta", show_lines=True)
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="green")
+        
+        table.add_row("Address", wallet_info['address'])
+        table.add_row("Balance", str(balance) if balance is not None else "Error fetching balance")
+        
+        console.print("\n[bold blue]Backend Wallet Info[/bold blue]")
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]Error showing backend wallet info: {e}[/red]")
+
+async def regenerate_backend_wallet(db: Session):
+    """Regenerate the backend wallet after confirmation."""
+    try:
+        from backend.app.services.backend_wallet import BackendWalletService
+        
+        console.print("[yellow]WARNING: This will create a new backend wallet. The old wallet and its funds will no longer be accessible![/yellow]")
+        confirmation = prompt("Type 'CONFIRM' to proceed: ")
+        
+        if confirmation != "CONFIRM":
+            console.print("[yellow]Operation cancelled.[/yellow]")
+            return
+            
+        wallet_service = BackendWalletService()
+        wallet = await wallet_service.create_wallet()
+        
+        console.print("[green]Backend wallet regenerated successfully![/green]")
+        console.print(f"[green]New wallet address: {wallet['address']}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error regenerating backend wallet: {e}[/red]")
+
 def main_menu():
     """Display the main menu and handle user input."""
     while True:
@@ -171,7 +217,9 @@ def main_menu():
         console.print("1. List Pending KYC")
         console.print("2. Approve KYC")
         console.print("3. List Approved Users")
-        console.print("4. Exit")
+        console.print("4. Show Backend Wallet Info")
+        console.print("5. Regenerate Backend Wallet")
+        console.print("6. Exit")
         
         choice = prompt("Select an option: ")
         
@@ -184,6 +232,10 @@ def main_menu():
         elif choice == "3":
             list_approved_users(db)
         elif choice == "4":
+            asyncio.run(show_backend_wallet(db))
+        elif choice == "5":
+            asyncio.run(regenerate_backend_wallet(db))
+        elif choice == "6":
             console.print("[yellow]Goodbye![/yellow]")
             break
         else:
