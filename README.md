@@ -47,12 +47,15 @@ python init_db.py
   - Educational content about solar panel cleaning
   - Multiple choice questions
   - Automatic ETH rewards for passing
+  - NFT badges for quiz completion
+  - Tracking of quiz completions and rewards
 
 - **Wallet Features**
   - Base Sepolia testnet integration
   - View wallet address and ETH balance
   - Send/receive ETH
   - Backend wallet for reward distribution
+  - NFT minting capability
 
 ## Dependencies
 
@@ -80,7 +83,7 @@ python init_db.py
 3. Admin approves & wallet generated
 4. Access features:
    - View wallet address and balance
-   - Take quiz to earn ETH
+   - Take quiz to earn ETH and NFT badges
    - Send ETH to other users
 
 ## Development Commands
@@ -110,7 +113,8 @@ python init_db.py
 ✅ Working Features:
 - Streamlined KYC system with admin approval
 - Base wallet generation and balance tracking
-- Educational quiz with ETH rewards
+- Educational quiz with ETH rewards and NFT badges
+- Quiz completion tracking with cascade deletion
 - Direct ETH transfers with improved user selection
 - Admin management tools with enhanced user info display
 

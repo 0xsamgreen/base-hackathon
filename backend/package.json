@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
-    "build": "tsc && tsc app/services/wallet.ts --outDir app/services --module commonjs",
+    "build": "tsc app/services/wallet.ts --outDir app/services --module es2020 --target es2020",
     "watch": "tsc -w",
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "npm run build"

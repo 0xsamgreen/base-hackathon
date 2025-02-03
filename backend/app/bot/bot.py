@@ -349,8 +349,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 raise
         
         if passed:
-            # Send ETH reward
+            # Send ETH reward and mint NFT
             try:
+                # Send ETH reward
                 wallet_service = BackendWalletService()
                 wallet_info = wallet_service.get_wallet_info()
                 logger.info(f"Retrieved backend wallet info: {wallet_info['address']}")
@@ -363,11 +364,61 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 logger.info(f"ETH reward sent successfully, tx_hash: {tx_hash}")
 
-                await query.message.reply_text(
-                    "🎉 Congratulations! You got all questions correct!\n\n"
-                    f"Your reward of {quiz.eth_reward_amount} ETH (≈ $0.02) has been sent!\n\n"
-                    f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}"
-                )
+                # Get NFT metadata
+                from ..models.nft import NFTMetadata
+                metadata = db.query(NFTMetadata).filter(NFTMetadata.quiz_id == quiz.id).first()
+                if metadata:
+                    # Mint NFT
+                    from ..services.nft_wrapper import NFTService
+                    nft_service = NFTService()
+                    
+                    # Update dynamic attributes
+                    import json
+                    attributes = json.loads(metadata.attributes)
+                    attributes["completion_date"] = completion.created_at.strftime("%Y-%m-%d")
+                    
+                    try:
+                        logger.info(f"Minting NFT for user {user.id} with metadata: {metadata.name}")
+                        nft_result = await nft_service.mint_nft(
+                            user.wallet_address,
+                            {
+                                "name": metadata.name,
+                                "description": metadata.description,
+                                "image_url": metadata.image_url,
+                                "attributes": json.dumps(attributes)
+                            }
+                        )
+                        
+                        # Save NFT token ID
+                        completion.nft_token_id = str(nft_result["tokenId"])
+                        completion.nft_transaction_hash = nft_result["transactionHash"]
+                        db.commit()
+                        logger.info(f"NFT minted successfully: token_id={nft_result['tokenId']}, tx_hash={nft_result['transactionHash']}")
+                        
+                        await query.message.reply_text(
+                            "🎉 Congratulations! You got all questions correct!\n\n"
+                            f"Your reward of {quiz.eth_reward_amount} ETH (≈ $0.02) has been sent!\n"
+                            f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}\n\n"
+                            f"You've also earned a special NFT badge! 🏆\n"
+                            f"Token ID: {nft_result['tokenId']}\n"
+                            f"View NFT transaction: https://sepolia.basescan.org/tx/{nft_result['transactionHash']}"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error minting NFT: {e}")
+                        # Still save completion but without NFT info
+                        db.commit()
+                        await query.message.reply_text(
+                            "🎉 Congratulations! You got all questions correct!\n\n"
+                            f"Your reward of {quiz.eth_reward_amount} ETH (≈ $0.02) has been sent!\n"
+                            f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}\n\n"
+                            "NFT minting is temporarily unavailable. Your ETH reward has been sent successfully!"
+                        )
+                else:
+                    await query.message.reply_text(
+                        "🎉 Congratulations! You got all questions correct!\n\n"
+                        f"Your reward of {quiz.eth_reward_amount} ETH (≈ $0.02) has been sent!\n\n"
+                        f"View transaction: https://sepolia.basescan.org/tx/{tx_hash}"
+                    )
             except Exception as e:
                 logger.error(f"Error sending ETH reward: {e}")
                 await query.message.reply_text(
@@ -627,9 +678,10 @@ def create_application() -> Application:
 
     # Configure error handlers
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle errors in the bot."""
         logger.error(f"Exception while handling an update: {context.error}")
-        logger.error(f"Error context: {context.error_context}")
-        logger.error(f"Update that caused error: {update}")
+        if update:
+            logger.error(f"Update that caused error: {update}")
     
     application.add_error_handler(error_handler)
 

@@ -17,11 +17,13 @@ class UserQuizCompletion(Base):
     __tablename__ = "user_quiz_completions"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
-    completed_at = Column(TIMESTAMP, server_default=func.now())
+    created_at = Column(TIMESTAMP, server_default=func.now())
     score = Column(Integer, nullable=False)
     passed = Column(Boolean, nullable=False)
+    nft_token_id = Column(String)  # NFT token ID when minted
+    nft_transaction_hash = Column(String)  # NFT minting transaction hash
     
     # Remove unique constraint to allow multiple attempts
     __table_args__ = ()
