@@ -1,6 +1,8 @@
 # Base Hackathon Project
 
-A Telegram bot-based KYC system with wallet generation for Base blockchain. Users can complete KYC, receive a Base wallet, take educational quizzes, and earn ETH rewards.
+⚠️ **WARNING: This is a hackathon project and should not be used in production. Private keys are stored in the database for demonstration purposes only.**
+
+A Telegram bot-based KYC system with wallet generation for Base blockchain, built during a hackathon. Users can complete KYC, receive a Base wallet, take educational quizzes, and earn ETH rewards.
 
 ## Quick Start
 
@@ -121,3 +123,18 @@ python init_db.py
 🚧 Coming Soon:
 - AI training opportunity
 - Additional quiz topics
+
+## Security Notice
+
+This project was built for a hackathon and includes several security compromises that make it unsuitable for production use:
+
+- Private keys are stored in the SQLite database
+- No encryption for sensitive user data
+- Basic KYC implementation
+- Simple authentication model
+
+For a production system, consider:
+- Using a proper key management system
+- Implementing encryption for sensitive data
+- Following security best practices for wallet management
+- Using a production-grade database
