@@ -28,6 +28,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Compiled JavaScript
+backend/app/services/*.js
+
 # Docker
 postgres_data/
 *.bak
